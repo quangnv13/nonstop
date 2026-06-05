@@ -1,0 +1,18 @@
+{
+  "name": "remote-cli-control",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remote CLI Telegram Control Platform",
+  "workspaces": [
+    "apps/server",
+    "apps/client"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=apps/server",
+    "dev:client": "npm run dev --workspace=apps/client",
+    "build:server": "npm run build --workspace=apps/server",
+    "build:client": "npm run build --workspace=apps/client",
+    "start:server": "npm run start --workspace=apps/server",
+    "start:client": "npm run start --workspace=apps/client"
+  }
+}

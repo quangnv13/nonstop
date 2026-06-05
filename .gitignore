@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.env
+data/*.json
+!data/workspaces.json.template
+*.log
+.DS_Store
+.idea/
+.vscode/
