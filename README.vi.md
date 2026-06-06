@@ -1,6 +1,6 @@
 # 🚀 nonstop
 
-🌐 **Tiếng Việt** | [English](./README.md)
+[English](./README.md) | 🌐 **Tiếng Việt**
 
 <p align="center">
   <img src="./images/nonstop.png" alt="nonstop Banner" width="800px" style="border-radius: 8px;" />
