@@ -177,6 +177,7 @@ export async function launchControlCenter(): Promise<void> {
     try {
       let lastSelection = 0;
       while (true) {
+        config = loadConfigFromDisk();
         const t = createTranslator(config.language);
         const isRunning = getRuntimeStatus().running;
         const isVi = config.language === 'vi';

@@ -34,7 +34,7 @@ export function buildSessionActionMarkup(options: SessionActionMarkupOptions): I
     ],
     [
       {
-        text: '⛔ Interrupt',
+        text: '⛔ Esc',
         callback_data: `session_cmd:${options.sessionId}:send_escape`
       },
       {

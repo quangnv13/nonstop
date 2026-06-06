@@ -5,6 +5,7 @@ import { buildSessionActionMarkup } from './session-controls.js';
 import { SessionOutputMessage } from './session-output.js';
 import { ActiveSessionState, SessionPreset, Workspace, WorkspaceDraft } from './types.js';
 import { createWorkspaceId } from './store.js';
+import { AppConfig, StartupMode } from './config.js';
 
 const grammyRequire: NodeRequire = require;
 const { Bot, InlineKeyboard } = grammyRequire('grammy') as GrammyModule;
@@ -39,6 +40,8 @@ type GrammyBot = {
 };
 
 export interface CreateBotRuntimeDependencies {
+  getConfig: () => AppConfig;
+  saveConfig: (config: AppConfig) => Promise<void>;
   getWorkspaces: () => Workspace[];
   saveWorkspaces: (workspaces: Workspace[]) => void;
   getActiveSession: () => ActiveSessionState | null;
@@ -63,6 +66,7 @@ export interface BotRuntime {
 
 interface ChatState {
   workspaceDraft: WorkspaceDraft | null;
+  configFieldDraft: { field: keyof AppConfig } | null;
 }
 
 const SUPPORTED_PRESETS: SessionPreset[] = ['powershell', 'bash', 'codex', 'antigravity'];
@@ -93,16 +97,13 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     throw new Error('TELEGRAM_BOT_TOKEN là bắt buộc.');
   }
 
-  const allowedUsername = normalizeUsername(
-    process.env.ADMIN_USERNAME || process.env.TELEGRAM_USERNAME || ''
-  );
   const bot = new Bot(token);
   const chatStates = new Map<number, ChatState>();
 
   function getChatState(chatId: number): ChatState {
     const existing = chatStates.get(chatId);
     if (existing) return existing;
-    const nextState: ChatState = { workspaceDraft: null };
+    const nextState: ChatState = { workspaceDraft: null, configFieldDraft: null };
     chatStates.set(chatId, nextState);
     return nextState;
   }
@@ -160,6 +161,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       .text('📁 Workspaces', 'workspaces_list')
       .text('⚡ Session', 'sessions_list')
       .row()
+      .text('⚙️ Cấu hình', 'config_menu')
       .text('ℹ️ Trợ giúp', 'help_view');
   }
 
@@ -176,6 +178,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
         '/start — Mở menu chính',
         '/status — Trạng thái runtime',
         '/help — Trợ giúp',
+        '/config — Cấu hình hệ thống',
         '/send <lệnh> — Gửi lệnh thô tới session',
         '',
         'Khi input mode BẬT, tin nhắn thường sẽ được gửi thẳng vào session.'
@@ -186,12 +189,15 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
 
   async function showStatus(ctx: BotContext): Promise<void> {
     const activeSession = deps.getActiveSession();
+    const currentAllowedUsername = normalizeUsername(
+      process.env.ADMIN_USERNAME || process.env.TELEGRAM_USERNAME || ''
+    );
     await renderText(
       ctx,
       [
         '📊 Trạng thái Runtime',
         '',
-        `Người dùng: ${allowedUsername || 'không giới hạn'}`,
+        `Người dùng: ${currentAllowedUsername || 'không giới hạn'}`,
         `Workspaces: ${deps.getWorkspaces().length}`,
         `Session: ${activeSession ? 'đang chạy' : 'không có'}`,
         activeSession ? `Preset: ${activeSession.preset}` : '',
@@ -199,6 +205,52 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       ].filter(Boolean).join('\n'),
       createKeyboard().text('⬅️ Quay lại', 'main_menu')
     );
+  }
+
+  async function showConfigMenu(ctx: BotContext): Promise<void> {
+    const config = deps.getConfig();
+    const lines = [
+      '⚙️ Cấu hình nonstop',
+      '',
+      `• Token: ${config.telegramBotToken ? '••••' + config.telegramBotToken.slice(-4) : 'Chưa cấu hình'}`,
+      `• Admin Username: ${config.adminUsername || 'Chưa cấu hình'}`,
+      `• Client Name: ${config.clientName || 'Chưa cấu hình'}`,
+      `• Telegram Username: ${config.telegramUsername || 'Chưa cấu hình'}`,
+      `• Ngôn ngữ: ${config.language} (vi/en)`,
+      `• Chế độ khởi động: ${config.startupMode} (disabled/background/open-ui)`,
+      `• Output Interval: ${config.outputInterval} ms`,
+      `• Max Output Lines: ${config.maxOutputLines}`,
+      `• Max Render Lines: ${config.maxRenderLines}`,
+      `• Codex Cmd: ${config.codexCmd}`,
+      `• Codex Args: ${config.codexArgs}`,
+      `• Antigravity Cmd: ${config.antigravityCmd}`,
+      `• Antigravity Args: ${config.antigravityArgs}`
+    ];
+
+    const keyboard = createKeyboard()
+      .text('Token', 'config_edit:telegramBotToken')
+      .text('Admin', 'config_edit:adminUsername')
+      .row()
+      .text('Client Name', 'config_edit:clientName')
+      .text('Telegram User', 'config_edit:telegramUsername')
+      .row()
+      .text(`Ngôn ngữ (${config.language === 'vi' ? '🇻🇳 vi' : '🇬🇧 en'})`, 'config_edit:language')
+      .text(`Khởi động (${config.startupMode})`, 'config_edit:startupMode')
+      .row()
+      .text('Interval', 'config_edit:outputInterval')
+      .text('Max Output Lines', 'config_edit:maxOutputLines')
+      .row()
+      .text('Max Render Lines', 'config_edit:maxRenderLines')
+      .text('Codex Cmd', 'config_edit:codexCmd')
+      .row()
+      .text('Codex Args', 'config_edit:codexArgs')
+      .text('Antigravity Cmd', 'config_edit:antigravityCmd')
+      .row()
+      .text('Antigravity Args', 'config_edit:antigravityArgs')
+      .row()
+      .text('⬅️ Quay lại', 'main_menu');
+
+    await renderText(ctx, lines.join('\n'), keyboard);
   }
 
   async function showWorkspacesMenu(ctx: BotContext): Promise<void> {
@@ -367,11 +419,50 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     return false;
   }
 
+  async function handleConfigDraft(ctx: BotContext): Promise<boolean> {
+    const chatId = ctx.chat?.id;
+    const text = ctx.message?.text?.trim();
+    if (!chatId || text === undefined) return false;
+
+    const state = getChatState(chatId);
+    const draft = state.configFieldDraft;
+    if (!draft) return false;
+
+    const field = draft.field;
+    const config = deps.getConfig();
+    const isNumeric = ['outputInterval', 'maxOutputLines', 'maxRenderLines'].includes(field);
+
+    if (isNumeric) {
+      const parsed = parseInt(text, 10);
+      if (isNaN(parsed) || !Number.isFinite(parsed)) {
+        await ctx.reply(`❌ Giá trị nhập vào không hợp lệ. Vui lòng nhập một số nguyên hợp lệ cho field "${field}".`);
+        return true;
+      }
+      const nextConfig = { ...config, [field]: parsed };
+      await deps.saveConfig(nextConfig);
+    } else {
+      let value = text;
+      if (field === 'adminUsername' || field === 'telegramUsername') {
+        value = text.startsWith('@') ? text : `@${text}`;
+      }
+      const nextConfig = { ...config, [field]: value };
+      await deps.saveConfig(nextConfig);
+    }
+
+    state.configFieldDraft = null;
+    await ctx.reply(`✓ Đã cập nhật cấu hình cho "${field}".`);
+    await showConfigMenu(ctx);
+    return true;
+  }
+
   // Middleware: kiểm tra quyền & lưu chat ID
   bot.use(async (ctx, next) => {
     trackChatId(ctx);
     const username = normalizeUsername(ctx.from?.username);
-    if (allowedUsername && username !== allowedUsername) {
+    const currentAllowedUsername = normalizeUsername(
+      process.env.ADMIN_USERNAME || process.env.TELEGRAM_USERNAME || ''
+    );
+    if (currentAllowedUsername && username !== currentAllowedUsername) {
       await ctx.reply('Bot này chỉ dành cho tài khoản Telegram đã cấu hình.');
       return;
     }
@@ -388,6 +479,10 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
 
   bot.command('status', async (ctx) => {
     await showStatus(ctx);
+  });
+
+  bot.command('config', async (ctx) => {
+    await showConfigMenu(ctx);
   });
 
   // /send <lệnh> — gửi raw text tới session đang chạy
@@ -415,6 +510,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     if (text.startsWith('/')) return;
 
     if (await handleWorkspaceDraft(ctx)) return;
+    if (await handleConfigDraft(ctx)) return;
 
     const session = deps.getActiveSession();
     if (session?.status === 'running' && session.inputMode) {
@@ -430,6 +526,44 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
   bot.callbackQuery('main_menu', async (ctx) => {
     await safeAnswerCallback(ctx);
     await showMainMenu(ctx);
+  });
+
+  bot.callbackQuery('config_menu', async (ctx) => {
+    await safeAnswerCallback(ctx);
+    await showConfigMenu(ctx);
+  });
+
+  bot.callbackQuery(/^config_edit:(.+)$/, async (ctx) => {
+    await safeAnswerCallback(ctx);
+    const field = ctx.match[1] as keyof AppConfig;
+
+    if (field === 'language') {
+      const config = deps.getConfig();
+      const nextLang = config.language === 'vi' ? 'en' : 'vi';
+      await deps.saveConfig({ ...config, language: nextLang });
+      await showConfigMenu(ctx);
+      return;
+    }
+
+    if (field === 'startupMode') {
+      const config = deps.getConfig();
+      let nextMode: StartupMode;
+      if (config.startupMode === 'disabled') {
+        nextMode = 'background';
+      } else if (config.startupMode === 'background') {
+        nextMode = 'open-ui';
+      } else {
+        nextMode = 'disabled';
+      }
+      await deps.saveConfig({ ...config, startupMode: nextMode });
+      await showConfigMenu(ctx);
+      return;
+    }
+
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    getChatState(chatId).configFieldDraft = { field };
+    await ctx.reply(`Nhập giá trị mới cho field "${field}":`);
   });
 
   bot.callbackQuery('help_view', async (ctx) => {

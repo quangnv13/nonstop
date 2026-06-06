@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { createBotRuntime, BotRuntime, loadLastChatId } from './bot.js';
-import { AppConfig } from './config.js';
+import { AppConfig, saveConfigToDisk, applyConfigToProcessEnv } from './config.js';
 import { logger } from './logger.js';
 import { RuntimeStateSnapshot, saveRuntimeState, clearRuntimeState } from './runtime-state.js';
 import { shouldSkipSessionOutput } from './session-delivery.js';
@@ -41,6 +41,7 @@ export class NonstopRuntime {
   private outputBuffer = { current: '' };
   private terminalState = createTerminalState();
   private outputTicker: NodeJS.Timeout | null = null;
+  private actionOutputTimeout: NodeJS.Timeout | null = null;
   private heartbeatTicker: NodeJS.Timeout | null = null;
   private onSessionOutputPush: SessionOutputPushCallback | null = null;
   private bot: BotRuntime | null = null;
@@ -78,6 +79,30 @@ export class NonstopRuntime {
     return this.activeSession;
   }
 
+  getConfig(): AppConfig {
+    return this.config;
+  }
+
+  async saveConfig(nextConfig: AppConfig): Promise<void> {
+    const tokenChanged = this.config.telegramBotToken !== nextConfig.telegramBotToken;
+    this.config = nextConfig;
+    saveConfigToDisk(nextConfig);
+    applyConfigToProcessEnv(nextConfig);
+    this.writeHeartbeat();
+
+    if (tokenChanged) {
+      setTimeout(() => {
+        void this.restartBot();
+      }, 1000);
+    }
+  }
+
+  async restartBot(): Promise<void> {
+    logger.info('Restarting Telegram bot due to token change...');
+    await this.stopBot();
+    await this.startBot();
+  }
+
   async startBot(): Promise<void> {
     if (this.bot) {
       return;
@@ -92,6 +117,10 @@ export class NonstopRuntime {
     });
 
     this.bot = createBotRuntime({
+      getConfig: () => this.getConfig(),
+      saveConfig: async (config) => {
+        await this.saveConfig(config);
+      },
       getWorkspaces: () => this.getWorkspaces(),
       saveWorkspaces: (workspaces) => this.saveWorkspaces(workspaces),
       getActiveSession: () => this.getActiveSession(),
@@ -280,6 +309,22 @@ export class NonstopRuntime {
     }
 
     driver.write(input);
+
+    if (['send_escape', 'send_enter', 'send_up', 'send_down'].includes(key)) {
+      if (this.outputTicker) {
+        clearInterval(this.outputTicker);
+        this.outputTicker = null;
+      }
+      if (this.actionOutputTimeout) {
+        clearTimeout(this.actionOutputTimeout);
+        this.actionOutputTimeout = null;
+      }
+      this.actionOutputTimeout = setTimeout(async () => {
+        this.actionOutputTimeout = null;
+        await this.flushOutput(true);
+        this.ensureOutputTicker();
+      }, 5000);
+    }
   }
 
   private resolveWorkspaceById(workspaceId: string): Workspace {
@@ -404,7 +449,7 @@ export class NonstopRuntime {
   }
 
   private ensureOutputTicker(): void {
-    if (this.outputTicker) {
+    if (this.outputTicker || this.actionOutputTimeout) {
       return;
     }
 
@@ -417,6 +462,10 @@ export class NonstopRuntime {
     if (this.outputTicker) {
       clearInterval(this.outputTicker);
       this.outputTicker = null;
+    }
+    if (this.actionOutputTimeout) {
+      clearTimeout(this.actionOutputTimeout);
+      this.actionOutputTimeout = null;
     }
 
     this.outputBuffer.current = '';
