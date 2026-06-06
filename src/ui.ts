@@ -17,11 +17,12 @@ import {
   saveConfigToDisk
 } from './config.js';
 import { createTranslator } from './i18n.js';
-import { getRuntimeStatus, startBackgroundRuntime, stopBackgroundRuntime, getEntryScriptPath } from './runtime-manager.js';
+import { getRuntimeStatus, startBackgroundRuntime, stopBackgroundRuntime, getEntryScriptPath, getCurrentVersion, checkForUpdate } from './runtime-manager.js';
 import { applyStartupMode } from './startup.js';
 import { loadWorkspaces, saveWorkspaces, createWorkspaceId } from './store.js';
 import { RuntimeStateSnapshot } from './runtime-state.js';
 import { Workspace } from './types.js';
+import { resolvePreset } from './terminal.js';
 
 interface Option<T> {
   label: string;
@@ -60,8 +61,9 @@ async function askQuestion(query: string): Promise<string> {
   }
 }
 
-async function pause(): Promise<void> {
-  await askQuestion(`\n${chalk.gray('Nhấn Enter để tiếp tục...')}`);
+async function pause(language?: AppLanguage): Promise<void> {
+  const isVi = language !== 'en';
+  await askQuestion(`\n${chalk.gray(isVi ? 'Nhấn Enter để tiếp tục...' : 'Press Enter to continue...')}`);
 }
 
 async function askWithDefault(
@@ -145,63 +147,33 @@ function renderDashboardHeader(config: AppConfig, snapshot: RuntimeStateSnapshot
   const isRunning = !!snapshot;
   const runtimeLabel = isRunning ? chalk.bold.green(t('dashboard.running')) : chalk.bold.red(t('dashboard.stopped'));
   const session = snapshot?.activeSession;
+  const isVi = config.language === 'vi';
 
   console.log(titleBox('nonstop client'));
   console.log('');
-  console.log(infoRow('Trạng thái', isRunning ? `${runtimeLabel}  ${chalk.gray(`(${snapshot!.mode})`)}` : runtimeLabel));
+  console.log(infoRow(isVi ? 'Trạng thái' : 'Status', isRunning ? `${runtimeLabel}  ${chalk.gray(`(${snapshot!.mode})`)}` : runtimeLabel));
   console.log(infoRow('Client', config.clientName, chalk.white));
   console.log(infoRow('Admin', config.adminUsername || '-', chalk.white));
-  console.log(infoRow('Ngôn ngữ', config.language === 'vi' ? 'Tiếng Việt' : 'English', chalk.white));
-  console.log(infoRow('Khởi động', config.startupMode, chalk.white));
+  console.log(infoRow(isVi ? 'Ngôn ngữ' : 'Language', config.language === 'vi' ? 'Tiếng Việt' : 'English', chalk.white));
+  console.log(infoRow(isVi ? 'Khởi động' : 'Startup', config.startupMode, chalk.white));
   if (snapshot?.startedAt) {
     const dt = new Date(snapshot.startedAt);
-    console.log(infoRow('Bật lúc', dt.toLocaleTimeString('vi-VN'), chalk.white));
+    console.log(infoRow(isVi ? 'Bật lúc' : 'Started at', dt.toLocaleTimeString(isVi ? 'vi-VN' : 'en-US'), chalk.white));
   }
   if (session) {
     console.log(separator());
-    console.log(infoRow('Session', `${session.preset}`, chalk.yellow));
+    console.log(infoRow(isVi ? 'Phiên' : 'Session', `${session.preset}`, chalk.yellow));
     const shortCwd = session.cwd.length > 40 ? '...' + session.cwd.slice(-38) : session.cwd;
-    console.log(infoRow('Thư mục', shortCwd, chalk.gray));
+    console.log(infoRow(isVi ? 'Thư mục' : 'Directory', shortCwd, chalk.gray));
   }
   if (snapshot?.lastError) {
     console.log(separator());
-    console.log(infoRow('Lỗi', snapshot.lastError, chalk.red));
+    console.log(infoRow(isVi ? 'Lỗi' : 'Error', snapshot.lastError, chalk.red));
   }
   console.log('');
   console.log(chalk.bold.blue('  ' + t('dashboard.menu')));
 }
 
-function getCurrentVersion(): string {
-  try {
-    const pkgPath = path.join(__dirname, '..', 'package.json');
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    return pkg.version;
-  } catch {
-    return '1.0.13';
-  }
-}
-
-function checkForUpdate(currentVersion: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      resolve(null);
-    }, 4000);
-
-    exec('npm view @quangnv13/nonstop version', (error, stdout) => {
-      clearTimeout(timer);
-      if (error) {
-        resolve(null);
-        return;
-      }
-      const latest = stdout.trim();
-      if (latest && latest !== currentVersion) {
-        resolve(latest);
-      } else {
-        resolve(null);
-      }
-    });
-  });
-}
 
 async function executeUpgrade(latestVersion: string, isVi: boolean): Promise<void> {
   clearScreen();
@@ -236,11 +208,11 @@ async function executeUpgrade(latestVersion: string, isVi: boolean): Promise<voi
     try {
       execSync('npm install -g @quangnv13/nonstop@latest', { stdio: 'inherit' });
       console.log(chalk.green(isVi ? '\n  ✓ Nâng cấp thành công! Vui lòng khởi động lại nonstop.' : '\n  ✓ Upgrade successful! Please restart nonstop.'));
-      await pause();
+      await pause(isVi ? 'vi' : 'en');
       process.exit(0);
     } catch (error) {
       console.error(chalk.red(isVi ? '\n  ❌ Lỗi nâng cấp: ' : '\n  ❌ Upgrade failed: '), error);
-      await pause();
+      await pause(isVi ? 'vi' : 'en');
     }
   }
 }
@@ -294,11 +266,12 @@ export async function launchControlCenter(): Promise<void> {
       const isRunning = getRuntimeStatus().running;
       const isVi = config.language === 'vi';
       const toggleLabel = isRunning
-        ? (isVi ? 'Tắt runtime nền' : 'Dừng background runtime')
-        : (isVi ? 'Bật runtime nền' : 'Chạy background runtime');
+        ? (isVi ? 'Tắt runtime nền' : 'Stop background runtime')
+        : (isVi ? 'Bật runtime nền' : 'Start background runtime');
 
       const options = [
         { label: toggleLabel, value: 'toggle' },
+        { label: isVi ? 'Danh sách CLI đã spawn' : 'List of spawned CLIs', value: 'sessions' },
         { label: t('menu.settings'), value: 'settings' },
         { label: t('menu.workspaces'), value: 'workspaces' },
         { label: t('menu.startup'), value: 'startup' },
@@ -318,11 +291,12 @@ export async function launchControlCenter(): Promise<void> {
 
       if (choice === 'exit') break;
       if (choice === 'toggle') { await handleToggleRuntime(config); continue; }
+      if (choice === 'sessions') { await manageActiveSessions(config.language); continue; }
       if (choice === 'settings') { config = await editConfig(config); continue; }
       if (choice === 'workspaces') { await manageWorkspaces(config.language); continue; }
       if (choice === 'startup') { config = await configureStartup(config); continue; }
       if (choice === 'language') { config = await switchLanguage(config); continue; }
-      if (choice === 'logs') { await showRecentLogs(); continue; }
+      if (choice === 'logs') { await showRecentLogs(config.language); continue; }
     }
   } finally {
     process.stdout.write('\u001b[?25h');
@@ -330,7 +304,150 @@ export async function launchControlCenter(): Promise<void> {
       try { process.stdin.setRawMode(wasRaw); } catch { /* ignore */ }
     }
     clearScreen();
-    console.log(chalk.gray('Đã thoát nonstop client.'));
+    console.log(chalk.gray(config.language === 'vi' ? 'Đã thoát nonstop client.' : 'Exited nonstop client.'));
+  }
+}
+
+async function manageActiveSessions(language: AppLanguage): Promise<void> {
+  const isVi = language === 'vi';
+
+  while (true) {
+    const status = getRuntimeStatus();
+    const session = status.snapshot?.activeSession;
+
+    const options: { label: string; value: { type: 'select' | 'back'; preset?: any; cwd?: string } }[] = [];
+
+    if (status.running && session && session.status === 'running') {
+      options.push({
+        label: `● [${session.preset.toUpperCase()}] ID: ${session.sessionId} | ${session.cwd}`,
+        value: { type: 'select', preset: session.preset, cwd: session.cwd }
+      });
+    }
+
+    options.push({
+      label: isVi ? '← Quay lại menu chính' : '← Back to main menu',
+      value: { type: 'back' }
+    });
+
+    const choice = await runSelectionMenu(
+      () => {
+        console.log(titleBox(isVi ? 'Danh sách CLI đã spawn' : 'List of spawned CLIs'));
+        console.log('');
+        if (!status.running) {
+          console.log(chalk.yellow(isVi
+            ? '  ⚠ Runtime nền hiện không chạy.'
+            : '  ⚠ Background runtime is not running.'));
+        } else if (!session || session.status !== 'running') {
+          console.log(chalk.gray(isVi
+            ? '  Không có session nào đang chạy.'
+            : '  No active sessions running.'));
+        } else {
+          console.log(chalk.gray(isVi
+            ? '  Chọn session để tiếp tục trực tiếp:'
+            : '  Select a session to continue locally:'));
+        }
+      },
+      options
+    );
+
+    if (choice.type === 'back') {
+      return;
+    }
+
+    if (choice.type === 'select' && choice.preset && choice.cwd) {
+      const action = await runSelectionMenu(
+        () => {
+          console.log(titleBox(isVi ? 'Chi tiết Phiên làm việc' : 'Session Details'));
+          console.log('');
+          console.log(`  Preset:  ${chalk.cyan(choice.preset.toUpperCase())}`);
+          console.log(`  Cwd:     ${chalk.cyan(choice.cwd)}`);
+          console.log('');
+          console.log(chalk.bold(isVi
+            ? '  Chọn hành động cho phiên làm việc này:'
+            : '  Select action for this session:'));
+        },
+        [
+          {
+            label: isVi
+              ? 'Mở trong terminal (tiếp tục phiên cục bộ)'
+              : 'Open in terminal (continue locally, no remote)',
+            value: 'open'
+          },
+          {
+            label: isVi ? '← Quay lại' : '← Back',
+            value: 'back'
+          }
+        ]
+      );
+
+      if (action === 'back') {
+        continue;
+      }
+
+      if (action === 'open') {
+        clearScreen();
+        console.log(chalk.blue(isVi
+          ? 'Đang ngắt kết nối phiên làm việc chạy nền...'
+          : 'Disconnecting background session...'));
+
+        const ipcPath = path.join(process.cwd(), 'data', 'ipc-command.json');
+        fs.writeFileSync(ipcPath, JSON.stringify({ action: 'stop-session' }), 'utf8');
+
+        // Polling to wait for session to disconnect
+        const deadline = Date.now() + 5000;
+        let disconnected = false;
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 100));
+          const currentStatus = getRuntimeStatus();
+          if (!currentStatus.snapshot?.activeSession || currentStatus.snapshot.activeSession.status !== 'running') {
+            disconnected = true;
+            break;
+          }
+        }
+
+        if (!disconnected) {
+          console.log(chalk.red(isVi
+            ? 'Không thể ngắt kết nối phiên làm việc chạy nền. Vui lòng thử lại.'
+            : 'Failed to disconnect background session. Please try again.'));
+          await pause(language);
+          continue;
+        }
+
+        console.log(chalk.green(isVi
+          ? 'Đang mở phiên làm việc trong terminal cục bộ...'
+          : 'Opening session in local terminal...'));
+        console.log(chalk.gray(isVi
+          ? 'Gõ "exit" để thoát và quay lại menu nonstop.'
+          : 'Type "exit" to quit and return to nonstop menu.'));
+        console.log('');
+
+        await new Promise((r) => setTimeout(r, 1000));
+
+        try {
+          const { command, args } = resolvePreset(choice.preset);
+
+          await new Promise<void>((resolve) => {
+            const child = spawn(command, args, { stdio: 'inherit', cwd: choice.cwd });
+            child.on('exit', () => {
+              process.stdin.resume();
+              resolve();
+            });
+            child.on('error', (err) => {
+              console.error(chalk.red(isVi
+                ? `Lỗi khi chạy lệnh: ${err.message}`
+                : `Error running command: ${err.message}`));
+              process.stdin.resume();
+              resolve();
+            });
+          });
+        } catch (err) {
+          console.error(chalk.red(isVi
+            ? `Lỗi không xác định: ${err instanceof Error ? err.message : String(err)}`
+            : `Unknown error: ${err instanceof Error ? err.message : String(err)}`));
+          await pause(language);
+        }
+      }
+    }
   }
 }
 
@@ -387,7 +504,7 @@ async function runSetupWizard(
   clearScreen();
   console.log(titleBox(t('wizard.title')));
   console.log(`\n${chalk.green(t('wizard.complete'))}`);
-  await pause();
+  await pause(language);
 
   return nextConfig;
 }
@@ -400,10 +517,10 @@ async function handleToggleRuntime(
   clearScreen();
   try {
     if (status.running) {
-      const msg = stopBackgroundRuntime(status.snapshot);
+      const msg = stopBackgroundRuntime(status.snapshot, config.language);
       console.log(`\n${chalk.yellow(msg)}`);
     } else {
-      const msg = startBackgroundRuntime();
+      const msg = startBackgroundRuntime(config.language);
       console.log(`\n${chalk.green(msg)}`);
     }
 
@@ -415,7 +532,7 @@ async function handleToggleRuntime(
     }
   } catch (error) {
     console.log(`\n${chalk.red(error instanceof Error ? error.message : String(error))}`);
-    await pause();
+    await pause(config.language);
     return;
   }
 }
@@ -424,7 +541,7 @@ async function editConfig(
   config: AppConfig
 ): Promise<AppConfig> {
   clearScreen();
-  console.log(titleBox('Sửa cấu hình'));
+  console.log(titleBox(config.language === 'vi' ? 'Sửa cấu hình' : 'Edit config'));
   console.log('');
 
   const nextConfig: AppConfig = {
@@ -438,9 +555,9 @@ async function editConfig(
   };
 
   saveConfigToDisk(nextConfig);
-  console.log(`\n${chalk.green('✓ Đã lưu cấu hình.')}`);
-  console.log(chalk.gray('Khởi động lại runtime nền nếu đang chạy để áp dụng thay đổi.'));
-  await pause();
+  console.log(`\n${chalk.green(config.language === 'vi' ? '✓ Đã lưu cấu hình.' : '✓ Settings saved.')}`);
+  console.log(chalk.gray(config.language === 'vi' ? 'Khởi động lại runtime nền nếu đang chạy để áp dụng thay đổi.' : 'Restart the background runtime if running to apply changes.'));
+  await pause(config.language);
   return nextConfig;
 }
 
@@ -452,7 +569,7 @@ async function manageWorkspaces(
   while (true) {
     const workspaces = loadWorkspaces();
     const options: { label: string; value: { type: 'add' | 'workspace' | 'back'; index?: number } }[] = [
-      { label: isVi ? '+ Thêm workspace mới' : '+ Add new workspace', value: { type: 'add' } },
+      { label: isVi ? '+ Thêm không gian làm việc mới' : '+ Add new workspace', value: { type: 'add' } },
       ...workspaces.map((ws, i) => ({
         label: `● ${ws.name}  ${chalk.gray(ws.path.length > 30 ? '...' + ws.path.slice(-28) : ws.path)}`,
         value: { type: 'workspace' as const, index: i }
@@ -462,8 +579,8 @@ async function manageWorkspaces(
 
     const selection = await runSelectionMenu(
       () => {
-        console.log(titleBox(isVi ? 'Quản lý Workspace' : 'Manage Workspaces'));
-        console.log(chalk.gray(`  ${isVi ? 'Chọn workspace hoặc thêm mới:' : 'Select workspace or add new:'}`));
+        console.log(titleBox(isVi ? 'Quản lý không gian làm việc' : 'Manage Workspaces'));
+        console.log(chalk.gray(`  ${isVi ? 'Chọn không gian làm việc hoặc thêm mới:' : 'Select workspace or add new:'}`));
       },
       options
     );
@@ -472,14 +589,14 @@ async function manageWorkspaces(
 
     if (selection.type === 'add') {
       clearScreen();
-      console.log(titleBox(isVi ? 'Thêm workspace mới' : 'Add workspace'));
+      console.log(titleBox(isVi ? 'Thêm không gian làm việc mới' : 'Add workspace'));
       console.log('');
-      const name = (await askQuestion(chalk.bold(isVi ? 'Tên workspace: ' : 'Workspace name: '))).trim();
+      const name = (await askQuestion(chalk.bold(isVi ? 'Tên không gian làm việc: ' : 'Workspace name: '))).trim();
       const rawPath = (await askQuestion(chalk.bold(isVi ? 'Đường dẫn: ' : 'Path: '))).trim();
 
       if (!rawPath) {
         console.log(chalk.red(isVi ? '  Đường dẫn không được để trống.' : '  Path cannot be empty.'));
-        await pause();
+        await pause(language);
         continue;
       }
 
@@ -490,8 +607,8 @@ async function manageWorkspaces(
 
       workspaces.push({ id: createWorkspaceId(), name: name || 'Workspace', path: resolvedPath });
       saveWorkspaces(workspaces);
-      console.log(chalk.green(`\n  ✓ ${isVi ? 'Đã thêm workspace.' : 'Workspace added.'}`));
-      await pause();
+      console.log(chalk.green(`\n  ✓ ${isVi ? 'Đã thêm không gian làm việc.' : 'Workspace added.'}`));
+      await pause(language);
       continue;
     }
 
@@ -501,13 +618,13 @@ async function manageWorkspaces(
 
       const action = await runSelectionMenu(
         () => {
-          console.log(titleBox(isVi ? 'Hành động Workspace' : 'Workspace Actions'));
+          console.log(titleBox(isVi ? 'Hành động không gian làm việc' : 'Workspace Actions'));
           console.log(chalk.gray(`  ${isVi ? 'Đang chọn:' : 'Selected:'} `) + chalk.bold(ws.name));
           console.log(chalk.gray(`  ${isVi ? 'Đường dẫn:' : 'Path:'} `) + ws.path);
         },
         [
-          { label: isVi ? 'Sửa workspace' : 'Edit workspace', value: 'edit' },
-          { label: isVi ? 'Xóa workspace' : 'Delete workspace', value: 'delete' },
+          { label: isVi ? 'Sửa không gian làm việc' : 'Edit workspace', value: 'edit' },
+          { label: isVi ? 'Xóa không gian làm việc' : 'Delete workspace', value: 'delete' },
           { label: isVi ? '← Quay lại' : '← Back', value: 'back' }
         ]
       );
@@ -518,14 +635,14 @@ async function manageWorkspaces(
         workspaces.splice(idx, 1);
         saveWorkspaces(workspaces);
         clearScreen();
-        console.log(chalk.green(`\n  ✓ ${isVi ? 'Đã xóa workspace.' : 'Workspace deleted.'}`));
-        await pause();
+        console.log(chalk.green(`\n  ✓ ${isVi ? 'Đã xóa không gian làm việc.' : 'Workspace deleted.'}`));
+        await pause(language);
         continue;
       }
 
       if (action === 'edit') {
         clearScreen();
-        console.log(titleBox(isVi ? 'Sửa workspace' : 'Edit workspace'));
+        console.log(titleBox(isVi ? 'Sửa không gian làm việc' : 'Edit workspace'));
         console.log('');
         const newName = await askWithDefault(isVi ? 'Tên mới' : 'New name', ws.name);
         const newPath = await askWithDefault(isVi ? 'Đường dẫn mới' : 'New path', ws.path);
@@ -535,8 +652,8 @@ async function manageWorkspaces(
         }
         workspaces[idx] = { ...ws, name: newName.trim() || ws.name, path: resolvedPath };
         saveWorkspaces(workspaces);
-        console.log(chalk.green(`\n  ✓ ${isVi ? 'Đã cập nhật workspace.' : 'Workspace updated.'}`));
-        await pause();
+        console.log(chalk.green(`\n  ✓ ${isVi ? 'Đã cập nhật không gian làm việc.' : 'Workspace updated.'}`));
+        await pause(language);
         continue;
       }
     }
@@ -562,14 +679,14 @@ async function configureStartup(
   );
 
   const entryScriptPath = getEntryScriptPath();
-  const result = applyStartupMode(nextMode, entryScriptPath, process.cwd());
+  const result = applyStartupMode(nextMode, entryScriptPath, process.cwd(), config.language);
   const nextConfig = { ...config, startupMode: nextMode };
   saveConfigToDisk(nextConfig);
 
   clearScreen();
   console.log(titleBox(isVi ? 'Cấu hình khởi động' : 'Configure startup'));
   console.log(`\n${chalk.green(result)}`);
-  await pause();
+  await pause(config.language);
   return nextConfig;
 }
 
@@ -593,17 +710,18 @@ async function switchLanguage(
   return nextConfig;
 }
 
-async function showRecentLogs(): Promise<void> {
+async function showRecentLogs(language: AppLanguage): Promise<void> {
+  const isVi = language === 'vi';
   clearScreen();
-  console.log(titleBox('Nhật ký gần đây'));
+  console.log(titleBox(isVi ? 'Nhật ký gần đây' : 'Recent logs'));
   const logPath = path.join(process.cwd(), 'data', 'nonstop.log');
   if (!fs.existsSync(logPath)) {
-    console.log(chalk.gray('\n  Chưa có nhật ký.'));
-    await pause();
+    console.log(chalk.gray(isVi ? '\n  Chưa có nhật ký.' : '\n  No logs found.'));
+    await pause(language);
     return;
   }
 
   const lines = fs.readFileSync(logPath, 'utf8').split(/\r?\n/).filter(Boolean).slice(-25);
   console.log('\n' + lines.map(l => chalk.gray('  ') + l).join('\n'));
-  await pause();
+  await pause(language);
 }

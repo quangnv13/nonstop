@@ -108,6 +108,15 @@ export class NonstopRuntime {
       return;
     }
 
+    const ipcPath = path.join(process.cwd(), 'data', 'ipc-command.json');
+    if (fs.existsSync(ipcPath)) {
+      try {
+        fs.unlinkSync(ipcPath);
+      } catch {
+        // ignore
+      }
+    }
+
     logger.info('nonstop runtime bootstrap complete', {
       clientName: this.config.clientName,
       telegramUsername: this.config.telegramUsername,
@@ -362,7 +371,34 @@ export class NonstopRuntime {
 
     this.heartbeatTicker = setInterval(() => {
       this.writeHeartbeat();
+      void this.checkIpcCommands();
     }, 2000);
+  }
+
+  private async checkIpcCommands(): Promise<void> {
+    const ipcPath = path.join(process.cwd(), 'data', 'ipc-command.json');
+    if (!fs.existsSync(ipcPath)) {
+      return;
+    }
+
+    try {
+      const content = fs.readFileSync(ipcPath, 'utf8');
+      const cmd = JSON.parse(content);
+      if (cmd.action === 'stop-session') {
+        logger.info('Received IPC command to stop session via file');
+        await this.stopSession();
+      }
+    } catch (error) {
+      logger.error('Error handling IPC command', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    } finally {
+      try {
+        fs.unlinkSync(ipcPath);
+      } catch {
+        // ignore
+      }
+    }
   }
 
   private writeHeartbeat(): void {

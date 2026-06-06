@@ -8,7 +8,7 @@ import {
 import { logger } from './logger.js';
 import { NonstopRuntime } from './runtime.js';
 import { launchControlCenter } from './ui.js';
-import { getRuntimeStatus, stopBackgroundRuntime } from './runtime-manager.js';
+import { getRuntimeStatus, stopBackgroundRuntime, checkUpdateOnStartup } from './runtime-manager.js';
 
 async function main(): Promise<void> {
   ensureEnvExampleFile();
@@ -24,14 +24,16 @@ async function main(): Promise<void> {
     const status = getRuntimeStatus();
     if (status.running && status.snapshot) {
       try {
-        const msg = stopBackgroundRuntime(status.snapshot);
+        const msg = stopBackgroundRuntime(status.snapshot, config.language);
         console.log(msg);
       } catch (error) {
         console.error(error instanceof Error ? error.message : String(error));
         process.exitCode = 1;
       }
     } else {
-      console.log('nonstop background runtime is not running.');
+      console.log(config.language === 'vi'
+        ? '⚠ Runtime nền của nonstop không đang chạy.'
+        : 'nonstop background runtime is not running.');
     }
     return;
   }
@@ -45,6 +47,8 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       return;
     }
+
+    void checkUpdateOnStartup(true, config.language);
 
     const runtime = new NonstopRuntime(config, 'background');
     await runtime.startBot();

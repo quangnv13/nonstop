@@ -26,14 +26,14 @@ export function buildSessionActionMarkup(options: SessionActionMarkupOptions): I
     [
       {
         text: inputMode
-          ? (isVi ? '⌨️ Tắt Input' : '⌨️ Input OFF')
-          : (isVi ? '⌨️ Bật Input' : '⌨️ Input ON'),
+          ? (isVi ? '⌨️ Tắt Nhập' : '⌨️ Input OFF')
+          : (isVi ? '⌨️ Bật Nhập' : '⌨️ Input ON'),
         callback_data: `session_cmd:${options.sessionId}:toggle_input`
       },
       {
         text: autoEnter
           ? (isVi ? '⏎ Tắt AutoEnter' : '⏎ AutoEnter OFF')
-          : (isVi ? '⏎ Bật AutoEnter' : '⏎ Bật AutoEnter ON'),
+          : (isVi ? '⏎ Bật AutoEnter' : '⏎ AutoEnter ON'),
         callback_data: `session_cmd:${options.sessionId}:toggle_enter`
       },
       {
