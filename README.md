@@ -107,6 +107,7 @@ nonstop
 Simply run `nonstop` in your terminal to open the management dashboard. From here, you can:
 * **Start / Stop** the background bot runtime.
 * **Configure Workspaces**: Manage directories where terminal sessions can be started.
+* **Attach to Active Sessions**: View and take over background shell sessions (e.g., started from Telegram) directly in your computer's terminal.
 * **Autostart Settings**: Set up the application to run automatically on system boot.
 * **View Logs**: Monitor bot logs and output in real time.
 
@@ -141,6 +142,25 @@ Once the bot runtime is active, you can interact with it via the following Teleg
 * Press **⚙️ Settings** or send `/config`.
 * Tap any settings button (e.g. *Token*, *Admin*, *Interval*, etc.) and send a new value via message to apply immediately. 
 * If you modify the `Telegram Bot Token`, the bot will automatically reload and restart itself securely.
+
+### 3. Remote/Local Switching
+`nonstop` allows you to seamlessly switch control between your Telegram app and your local computer terminal:
+
+1. **Start the Session on Telegram**: Run a session from Telegram bot as usual (e.g., select **⚡ Session** -> **PowerShell**).
+2. **Take Over Locally**:
+   - Open your computer's terminal and run:
+     ```bash
+     nonstop
+     ```
+   - In the TUI, select **List of spawned CLIs**.
+   - Select the active session you want to connect to.
+   - You are now connected directly. Any typing or commands run locally will execute in the same background PTY process.
+   - *Note: While you are attached locally, synchronization of new outputs to Telegram is automatically paused to prevent hitting Telegram API rate limits.*
+3. **Detach and Return to Telegram**:
+   - To disconnect from the local terminal without stopping the process, press **`Ctrl+B` then `D`** (similar to detaching in tmux).
+   - `nonstop` will detach, and the session will continue running in the background.
+   - Upon detachment, a final summary snapshot of the session's terminal screen is automatically sent to Telegram so you can see the latest status.
+   - You can now resume interacting with the session via the Telegram Bot.
 
 ---
 

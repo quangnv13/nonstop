@@ -107,6 +107,7 @@ nonstop
 Chỉ cần chạy lệnh `nonstop` trên terminal của bạn để mở giao diện bảng điều khiển. Từ đây bạn có thể:
 * **Khởi động / Dừng (Start / Stop)** bot chạy ẩn.
 * **Cấu hình Workspace**: Quản lý các thư mục mà phiên terminal được phép khởi chạy từ đó.
+* **Kết nối vào phiên hoạt động**: Xem và điều khiển trực tiếp các phiên shell chạy ẩn (ví dụ: được khởi chạy từ Telegram) ngay trên terminal máy tính của bạn.
 * **Tự động khởi động (Autostart)**: Thiết lập ứng dụng tự chạy khi hệ thống khởi động.
 * **Xem logs**: Theo dõi nhật ký hoạt động của bot thời gian thực.
 
@@ -141,6 +142,25 @@ Khi bot đang hoạt động, bạn có thể tương tác với nó thông qua 
 * Nhấn nút **⚙️ Cấu hình** hoặc gửi lệnh `/config`.
 * Nhấn vào bất kỳ trường cấu hình nào (ví dụ: *Token*, *Admin*, *Interval*, v.v.) và gửi giá trị mới thông qua tin nhắn để áp dụng ngay lập tức.
 * Khi thay đổi `Telegram Bot Token`, bot sẽ tự động tải lại cấu hình và khởi động lại một cách an toàn.
+
+### 3. Chuyển Đổi Qua Lại Giữa Telegram và Terminal Cục Bộ
+`nonstop` cho phép bạn chuyển đổi quyền điều khiển liền mạch giữa ứng dụng Telegram và terminal trên máy tính của bạn:
+
+1. **Khởi chạy phiên trên Telegram**: Bắt đầu một phiên terminal từ bot Telegram như bình thường (ví dụ: chọn **⚡ Session** -> **PowerShell**).
+2. **Tiếp quản trực tiếp trên máy tính**:
+   - Mở terminal trên máy tính của bạn và chạy:
+     ```bash
+     nonstop
+     ```
+   - Trong giao diện TUI, chọn **Danh sách CLI đã spawn**.
+   - Chọn phiên đang chạy mà bạn muốn kết nối.
+   - Giờ đây bạn đã kết nối trực tiếp. Mọi thao tác gõ phím và lệnh chạy cục bộ sẽ thực thi trên cùng một tiến trình PTY nền đó.
+   - *Lưu ý: Trong khi bạn đang kết nối trực tiếp trên máy tính, luồng đồng bộ tin nhắn lên Telegram sẽ tự động tạm ngưng để tránh bị giới hạn API.*
+3. **Ngắt kết nối để quay lại Telegram**:
+   - Để ngắt kết nối cục bộ mà không dừng tiến trình terminal, nhấn tổ hợp phím **`Ctrl+B` rồi nhấn `D`** (tương tự như detach trong tmux).
+   - Ứng dụng sẽ ngắt kết nối trực tiếp, tiến trình shell vẫn tiếp tục chạy ẩn.
+   - Ngay sau khi ngắt kết nối, một tin nhắn tóm tắt trạng thái màn hình terminal cuối cùng sẽ được tự động gửi lên Telegram.
+   - Bạn có thể tiếp tục tương tác với phiên terminal này qua bot Telegram.
 
 ---
 
