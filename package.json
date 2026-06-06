@@ -1,6 +1,6 @@
 {
   "name": "@quangnv13/nonstop",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "preferGlobal": true,
   "publishConfig": {
     "access": "public"
@@ -29,6 +29,7 @@
   "files": [
     "dist",
     "images",
+    "scripts",
     "README.md",
     "README.vi.md"
   ],
@@ -39,7 +40,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "test": "node --import tsx --test src/*.test.ts"
+    "test": "node --import tsx --test src/*.test.ts",
+    "preinstall": "node scripts/preinstall.js"
   },
   "dependencies": {
     "boxen": "^5.1.2",
