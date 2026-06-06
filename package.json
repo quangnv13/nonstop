@@ -1,6 +1,9 @@
 {
-  "name": "nonstop",
+  "name": "@quangnv13/nonstop",
   "version": "1.0.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "nonstop Telegram terminal control CLI",
   "author": "quangnv13",
   "license": "MIT",
@@ -19,7 +22,8 @@
     "terminal",
     "cli",
     "tui",
-    "remote-control"
+    "remote-control",
+    "ai agent"
   ],
   "files": [
     "dist",
