@@ -468,6 +468,12 @@ export class NonstopRuntime {
     const snapshot = renderTerminalSnapshot(this.terminalState, this.config.maxOutputLines);
     const finalText = snapshot || limitLines(promptDetectionText, this.config.maxOutputLines);
 
+    if (this.activeIpcSockets.size > 0) {
+      // User is active locally. Clear buffer, sync lastSentFinalText, but skip Telegram messaging.
+      session.lastSentFinalText = finalText;
+      return;
+    }
+
     if (!text && !forceSnapshot) {
       return;
     }
@@ -499,7 +505,13 @@ export class NonstopRuntime {
     }
 
     for (const message of messages) {
-      await this.onSessionOutputPush(session.listenerChatId, message.text, message.options);
+      try {
+        await this.onSessionOutputPush(session.listenerChatId, message.text, message.options);
+      } catch (err) {
+        logger.error('Failed to push session output to Telegram', {
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
     }
 
     session.lastSentFinalText = finalText;
@@ -540,6 +552,10 @@ export class NonstopRuntime {
 
     if (process.platform !== 'win32') {
       try {
+        const socketDir = path.dirname(socketPath);
+        if (!fs.existsSync(socketDir)) {
+          fs.mkdirSync(socketDir, { recursive: true });
+        }
         if (fs.existsSync(socketPath)) {
           fs.unlinkSync(socketPath);
         }
@@ -583,6 +599,10 @@ export class NonstopRuntime {
       socket.on('close', () => {
         logger.info('IPC client disconnected');
         this.activeIpcSockets.delete(socket);
+        if (this.activeIpcSockets.size === 0) {
+          // Immediately flush the final state of the session to Telegram
+          void this.flushOutput(true, true);
+        }
       });
     });
 

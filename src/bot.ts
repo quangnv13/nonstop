@@ -830,7 +830,14 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       bot.stop();
     },
     async pushSessionOutput(chatId, text, options) {
-      await bot.api.sendMessage(chatId, text, options);
+      try {
+        await bot.api.sendMessage(chatId, text, options);
+      } catch (error) {
+        logger.error('Failed to send Telegram message', {
+          chatId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
     },
     // Confirmation prompt đã bị xóa — không dùng nữa
     async showConfirmationPrompt(_session, _text) {

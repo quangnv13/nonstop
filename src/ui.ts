@@ -356,98 +356,7 @@ async function manageActiveSessions(language: AppLanguage): Promise<void> {
     }
 
     if (choice.type === 'select' && choice.preset && choice.cwd) {
-      const action = await runSelectionMenu(
-        () => {
-          console.log(titleBox(isVi ? 'Chi tiết Phiên làm việc' : 'Session Details'));
-          console.log('');
-          console.log(`  Preset:  ${chalk.cyan(choice.preset.toUpperCase())}`);
-          console.log(`  Cwd:     ${chalk.cyan(choice.cwd)}`);
-          console.log('');
-          console.log(chalk.bold(isVi
-            ? '  Chọn hành động cho phiên làm việc này:'
-            : '  Select action for this session:'));
-        },
-        [
-          {
-            label: isVi
-              ? 'Mở trong terminal (tiếp tục phiên cục bộ)'
-              : 'Open in terminal (continue locally, no remote)',
-            value: 'open'
-          },
-          {
-            label: isVi ? '← Quay lại' : '← Back',
-            value: 'back'
-          }
-        ]
-      );
-
-      if (action === 'back') {
-        continue;
-      }
-
-      if (action === 'open') {
-        clearScreen();
-        console.log(chalk.blue(isVi
-          ? 'Đang ngắt kết nối phiên làm việc chạy nền...'
-          : 'Disconnecting background session...'));
-
-        const ipcPath = path.join(process.cwd(), 'data', 'ipc-command.json');
-        fs.writeFileSync(ipcPath, JSON.stringify({ action: 'stop-session' }), 'utf8');
-
-        // Polling to wait for session to disconnect
-        const deadline = Date.now() + 5000;
-        let disconnected = false;
-        while (Date.now() < deadline) {
-          await new Promise((r) => setTimeout(r, 100));
-          const currentStatus = getRuntimeStatus();
-          if (!currentStatus.snapshot?.activeSession || currentStatus.snapshot.activeSession.status !== 'running') {
-            disconnected = true;
-            break;
-          }
-        }
-
-        if (!disconnected) {
-          console.log(chalk.red(isVi
-            ? 'Không thể ngắt kết nối phiên làm việc chạy nền. Vui lòng thử lại.'
-            : 'Failed to disconnect background session. Please try again.'));
-          await pause(language);
-          continue;
-        }
-
-        console.log(chalk.green(isVi
-          ? 'Đang mở phiên làm việc trong terminal cục bộ...'
-          : 'Opening session in local terminal...'));
-        console.log(chalk.gray(isVi
-          ? 'Gõ "exit" để thoát và quay lại menu nonstop.'
-          : 'Type "exit" to quit and return to nonstop menu.'));
-        console.log('');
-
-        await new Promise((r) => setTimeout(r, 1000));
-
-        try {
-          const { command, args } = resolvePreset(choice.preset);
-
-          await new Promise<void>((resolve) => {
-            const child = spawn(command, args, { stdio: 'inherit', cwd: choice.cwd });
-            child.on('exit', () => {
-              process.stdin.resume();
-              resolve();
-            });
-            child.on('error', (err) => {
-              console.error(chalk.red(isVi
-                ? `Lỗi khi chạy lệnh: ${err.message}`
-                : `Error running command: ${err.message}`));
-              process.stdin.resume();
-              resolve();
-            });
-          });
-        } catch (err) {
-          console.error(chalk.red(isVi
-            ? `Lỗi không xác định: ${err instanceof Error ? err.message : String(err)}`
-            : `Unknown error: ${err instanceof Error ? err.message : String(err)}`));
-          await pause(language);
-        }
-      }
+      await attachToBackgroundSession(choice.preset, choice.cwd, language);
     }
   }
 }
@@ -726,4 +635,147 @@ async function showRecentLogs(language: AppLanguage): Promise<void> {
   const lines = fs.readFileSync(logPath, 'utf8').split(/\r?\n/).filter(Boolean).slice(-25);
   console.log('\n' + lines.map(l => chalk.gray('  ') + l).join('\n'));
   await pause(language);
+}
+
+async function attachToBackgroundSession(
+  preset: string,
+  cwd: string,
+  language: AppLanguage
+): Promise<void> {
+  const isVi = language === 'vi';
+  const socketPath = getIpcSocketPath();
+
+  clearScreen();
+  console.log(chalk.blue(isVi 
+    ? 'Đang kết nối tới phiên chạy nền...' 
+    : 'Connecting to background session...'));
+
+  return new Promise<void>((resolve) => {
+    const socket = net.createConnection(socketPath);
+
+    let isClosed = false;
+    const cleanup = () => {
+      if (isClosed) return;
+      isClosed = true;
+
+      // Restore stdin & stdout
+      process.stdin.removeListener('data', onStdinData);
+      process.stdout.removeListener('resize', onResize);
+      if (process.stdin.isTTY) {
+        try {
+          process.stdin.setRawMode(false);
+        } catch { /* ignore */ }
+      }
+      process.stdin.resume();
+
+      socket.destroy();
+      resolve();
+    };
+
+    socket.on('connect', () => {
+      clearScreen();
+      console.log(chalk.bold.green(isVi
+        ? `--- Đã kết nối tới phiên ${preset.toUpperCase()} | Gõ phím để tương tác ---`
+        : `--- Connected to ${preset.toUpperCase()} session | Start typing to interact ---`));
+      console.log(chalk.gray(isVi
+        ? '--- Nhấn Ctrl+B rồi nhấn D để ngắt kết nối (session vẫn chạy nền) ---'
+        : '--- Press Ctrl+B then D to detach (session will keep running) ---'));
+      console.log('');
+
+      if (process.stdin.isTTY) {
+        try {
+          process.stdin.setRawMode(true);
+        } catch { /* ignore */ }
+      }
+      process.stdin.resume();
+
+      // Send initial size
+      if (process.stdout.isTTY) {
+        socket.write(JSON.stringify({
+          type: 'resize',
+          cols: process.stdout.columns || 80,
+          rows: process.stdout.rows || 24
+        }) + '\n');
+      }
+    });
+
+    let lastKeyWasCtrlB = false;
+
+    function onStdinData(data: Buffer) {
+      if (isClosed) return;
+
+      if (data.length === 1 && data[0] === 2) {
+        lastKeyWasCtrlB = true;
+        return;
+      }
+
+      if (lastKeyWasCtrlB) {
+        lastKeyWasCtrlB = false;
+        if (data.length === 1 && (data[0] === 100 || data[0] === 68)) {
+          console.log(chalk.yellow(isVi ? '\n\nĐang ngắt kết nối...' : '\n\nDetaching...'));
+          cleanup();
+          return;
+        }
+        socket.write(JSON.stringify({ type: 'input', data: '\u0002' }) + '\n');
+      }
+
+      socket.write(JSON.stringify({ type: 'input', data: data.toString('utf8') }) + '\n');
+    }
+
+    function onResize() {
+      if (isClosed) return;
+      socket.write(JSON.stringify({
+        type: 'resize',
+        cols: process.stdout.columns || 80,
+        rows: process.stdout.rows || 24
+      }) + '\n');
+    }
+
+    process.stdin.on('data', onStdinData);
+    process.stdout.on('resize', onResize);
+
+    let buffer = '';
+    socket.on('data', (data) => {
+      if (isClosed) return;
+
+      buffer += data.toString();
+      let boundary = buffer.indexOf('\n');
+      while (boundary !== -1) {
+        const line = buffer.slice(0, boundary).trim();
+        buffer = buffer.slice(boundary + 1);
+        if (line) {
+          try {
+            const msg = JSON.parse(line);
+            if (msg.type === 'output') {
+              process.stdout.write(msg.data);
+            } else if (msg.type === 'exit') {
+              console.log(chalk.yellow(isVi
+                ? `\n\n[Phiên làm việc đã kết thúc với mã thoát ${msg.code}]`
+                : `\n\n[Session exited with code ${msg.code}]`));
+              cleanup();
+            }
+          } catch (err) {
+            // Ignore
+          }
+        }
+        boundary = buffer.indexOf('\n');
+      }
+    });
+
+    socket.on('error', (err) => {
+      if (isClosed) return;
+      console.log(chalk.red(isVi
+        ? `\nLỗi kết nối IPC: ${err.message}`
+        : `\nIPC connection error: ${err.message}`));
+      pause(language).then(cleanup);
+    });
+
+    socket.on('close', () => {
+      if (isClosed) return;
+      console.log(chalk.gray(isVi
+        ? '\nĐã ngắt kết nối với phiên chạy nền.'
+        : '\nDisconnected from background session.'));
+      pause(language).then(cleanup);
+    });
+  });
 }

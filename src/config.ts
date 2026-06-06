@@ -180,6 +180,7 @@ function parseInteger(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+
 function parseLanguage(value: string | undefined): AppLanguage {
   return value === 'vi' ? 'vi' : 'en';
 }
