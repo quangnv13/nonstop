@@ -19,7 +19,7 @@ export function loadWorkspaces(): Workspace[] {
   ensureDataDir();
 
   if (!fs.existsSync(workspacesFilePath)) {
-    return regenerateDefaultWorkspaces();
+    return [];
   }
 
   try {
@@ -27,22 +27,16 @@ export function loadWorkspaces(): Workspace[] {
     const parsed = JSON.parse(raw);
 
     if (!Array.isArray(parsed)) {
-      return regenerateDefaultWorkspaces();
+      return [];
     }
 
-    const workspaces = parsed.filter(isWorkspaceRecord).map((workspace) => ({
+    return parsed.filter(isWorkspaceRecord).map((workspace) => ({
       id: workspace.id,
       name: workspace.name,
       path: workspace.path
     }));
-
-    if (workspaces.length === 0) {
-      return regenerateDefaultWorkspaces();
-    }
-
-    return workspaces;
   } catch {
-    return regenerateDefaultWorkspaces();
+    return [];
   }
 }
 
@@ -66,28 +60,4 @@ function isWorkspaceRecord(value: unknown): value is Workspace {
     typeof record.name === 'string' &&
     typeof record.path === 'string'
   );
-}
-
-function regenerateDefaultWorkspaces(): Workspace[] {
-  const rootDir = path.resolve(DATA_DIR, '..');
-  const defaultWorkspaces: Workspace[] = [
-    {
-      id: 'ws_root',
-      name: 'Project Root',
-      path: rootDir.replace(/\\/g, '/')
-    },
-    {
-      id: 'ws_src',
-      name: 'Source',
-      path: path.join(rootDir, 'src').replace(/\\/g, '/')
-    },
-    {
-      id: 'ws_docs',
-      name: 'Docs',
-      path: path.join(rootDir, 'docs').replace(/\\/g, '/')
-    }
-  ];
-
-  saveWorkspaces(defaultWorkspaces);
-  return defaultWorkspaces;
 }

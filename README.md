@@ -97,6 +97,9 @@ nonstop
 
 ## 🕹️ Usage Guide
 
+> [!IMPORTANT]
+> **No workspaces are auto-generated on first launch.** To start working on any folder, you must first configure/create a workspace mapping to that folder (either via the local TUI Control Center or the Telegram Bot's `📁 Workspaces` menu).
+
 ### 1. Local TUI Control Center
 Simply run `nonstop` in your terminal to open the management dashboard. From here, you can:
 * **Start / Stop** the background bot runtime.

@@ -97,6 +97,9 @@ nonstop
 
 ## 🕹️ Hướng Dẫn Sử Dụng
 
+> [!IMPORTANT]
+> **Không có workspace nào được tự động tạo sẵn trong lần chạy đầu tiên.** Để bắt đầu làm việc trên thư mục mong muốn, bạn phải tạo/cấu hình ít nhất một workspace liên kết với thư mục đó (thông qua Trung tâm điều khiển TUI cục bộ hoặc menu `📁 Workspaces` của Bot Telegram).
+
 ### 1. Trung Tâm Điều Khiển TUI Cục Bộ
 Chỉ cần chạy lệnh `nonstop` trên terminal của bạn để mở giao diện bảng điều khiển. Từ đây bạn có thể:
 * **Khởi động / Dừng (Start / Stop)** bot chạy ẩn.
