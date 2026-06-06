@@ -1,5 +1,6 @@
 import * as pty from 'node-pty';
 import { logger } from './logger.js';
+import { SessionPreset } from './types.js';
 
 export interface TerminalDriver {
   write(data: string): void;
@@ -73,18 +74,15 @@ export class NodePtyTerminalDriver implements TerminalDriver {
   }
 }
 
-export function resolvePreset(presetName: string): { command: string; args: string[] } {
+export const SUPPORTED_PRESETS: SessionPreset[] = ['powershell', 'bash', 'codex', 'antigravity'];
+
+export function resolvePreset(presetName: SessionPreset): { command: string; args: string[] } {
   const isWindows = process.platform === 'win32';
 
   switch (presetName) {
     case 'powershell':
       return {
         command: isWindows ? 'powershell.exe' : 'pwsh',
-        args: []
-      };
-    case 'cmd':
-      return {
-        command: isWindows ? 'cmd.exe' : 'sh',
         args: []
       };
     case 'bash':
@@ -117,9 +115,6 @@ export function resolvePreset(presetName: string): { command: string; args: stri
       return { command, args };
     }
     default:
-      return {
-        command: isWindows ? 'cmd.exe' : 'sh',
-        args: []
-      };
+      throw new Error(`Unsupported preset "${presetName}".`);
   }
 }

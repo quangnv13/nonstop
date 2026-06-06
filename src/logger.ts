@@ -1,4 +1,9 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+
+const LOG_FILE_PATH = path.join(process.cwd(), 'data', 'nonstop.log');
 
 function formatMeta(meta?: Record<string, unknown>): string {
   if (!meta || Object.keys(meta).length === 0) {
@@ -13,7 +18,8 @@ function formatMeta(meta?: Record<string, unknown>): string {
 }
 
 function log(level: LogLevel, message: string, meta?: Record<string, unknown>) {
-  const line = `[${new Date().toISOString()}] [server] [${level}] ${message}${formatMeta(meta)}`;
+  const line = `[${new Date().toISOString()}] [nonstop] [${level}] ${message}${formatMeta(meta)}`;
+  writeLogFile(line);
   if (level === 'ERROR') {
     console.error(line);
     return;
@@ -23,6 +29,15 @@ function log(level: LogLevel, message: string, meta?: Record<string, unknown>) {
     return;
   }
   console.log(line);
+}
+
+function writeLogFile(line: string): void {
+  try {
+    fs.mkdirSync(path.dirname(LOG_FILE_PATH), { recursive: true });
+    fs.appendFileSync(LOG_FILE_PATH, `${line}\n`, 'utf8');
+  } catch {
+    return;
+  }
 }
 
 export const logger = {

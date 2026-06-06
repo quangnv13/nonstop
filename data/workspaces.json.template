@@ -1,0 +1,17 @@
+[
+  {
+    "id": "ws_root",
+    "name": "Project Root",
+    "path": "C:/path/to/project-root"
+  },
+  {
+    "id": "ws_src",
+    "name": "Source",
+    "path": "C:/path/to/project-root/src"
+  },
+  {
+    "id": "ws_docs",
+    "name": "Docs",
+    "path": "C:/path/to/project-root/docs"
+  }
+]

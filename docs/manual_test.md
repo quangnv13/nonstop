@@ -1,88 +1,89 @@
-# Remote CLI Telegram Control Platform - Manual & Integration Testing Guide
+# nonstop - Manual Verification Guide
 
-This document guides you through smoke testing and validating the platform features.
+This document covers manual smoke verification for the root-level `nonstop` CLI/TUI and its background Telegram runtime.
 
-## 1. Prerequisites Checklist
-- [ ] Node.js LTS (v22+) is installed.
-- [ ] Windows Build Tools (or Visual Studio Build Tools with C++) installed if compiling native binaries on Windows.
-- [ ] A Telegram Bot Token from `@BotFather`.
-- [ ] The server and client environment files configured (`.env`).
+## 1. Prerequisites
+- [ ] Node.js LTS is installed.
+- [ ] Windows build tools are available if `node-pty` needs native compilation.
+- [ ] A Telegram bot token from `@BotFather`.
+- [ ] Root `.env` is configured, or you are ready to complete setup in the wizard.
 
----
+## 2. Root CLI Verification
 
-## 2. Step-by-Step Smoke Test
-
-### Step 2.1: Server Setup
-1. Open a terminal in `apps/server` or root and ensure `.env` has your `TELEGRAM_BOT_TOKEN`.
-2. Clean database data (optional): Delete the `data` directory if you want a fresh run.
-3. Start the server:
+### Step 2.1: Build and launch
+1. Open a terminal at the repository root.
+2. Run:
    ```bash
-   npm run dev:server
+   npm run build
+   npm start
    ```
-4. Verify server output:
-   * `[Server] Socket.IO server running on port 3000`
-   * `[Bot] Telegram bot @YourBotName started successfully.`
+3. If config is incomplete, verify `nonstop` opens the setup wizard.
+4. Enter bot token, Telegram username, client name, language, and startup mode.
+5. Verify the app writes `.env` at the repository root.
 
-### Step 2.2: First Admin Bootstrap
-1. Open your Telegram client and search for your bot.
-2. Send the `/start` command.
-3. Verify that the bot replies with:
-   `🎉 First User Bootstrap: You are now the Admin!`
-4. Open the `data/admin.json` file on the server. Ensure your Telegram ID is saved there.
-5. Send `/status` to the bot and verify the stats match.
+### Step 2.2: Dashboard behavior
+1. Re-open `npm start`.
+2. Verify the control center dashboard renders.
+3. Verify it shows:
+   * runtime status
+   * client name
+   * language
+   * startup mode
+   * active session info when available
 
-### Step 2.3: Allowed User list testing
-1. Ask a friend or use a second Telegram account to message the bot with `/start`.
-2. Verify they get a `❌ Unauthorized: You do not have access.` message.
-3. From the Admin account, send `/allow <second-user-id>`.
-4. Verify the bot replies with `✅ Added user ID ... to allowed list.`
-5. Check `data/allowed_users.txt` to confirm the ID was written.
-6. Send `/start` from the second account again; verify they can now view the Main Menu.
+### Step 2.3: Background runtime detection
+1. From the dashboard, start the background runtime.
+2. Close the UI.
+3. Run `npm start` again.
+4. Verify the dashboard reports that the runtime is already running instead of starting a duplicate process.
 
-### Step 2.4: Client Connection
-1. In another terminal, run:
-   ```bash
-   npm run dev:client
-   ```
-2. Verify client console logs:
-   * `🔌 Connecting to Remote CLI Server...`
-   * `🟢 Connected to server successfully. Socket ID: ...`
-3. Verify server logs:
-   * `[Socket] Client connected: ...`
-   * `[Socket] client:hello from ...`
-4. On Telegram, tap **🖥️ Clients** from the Main Menu. Verify your client machine shows up as `🟢 MyWorkstation - Online`.
+### Step 2.4: Config editing from CLI
+1. Open the config editor from the dashboard.
+2. Change at least one value such as `CLIENT_NAME` or `ADMIN_USERNAME`.
+3. Verify the updated values are saved in `.env`.
 
-### Step 2.5: Spawn Terminal Sessions
-1. In Telegram, go back to **Main Menu** -> **📁 Workspaces**.
-2. Select one of the auto-generated workspaces (e.g. `Server Backend`).
-3. Under CLI Presets, select **Powershell** (or **CMD** if on Windows).
-4. Verify the bot replies:
-   `🚀 Starting powershell in workspace Server Backend...`
-5. Verify you get the initial shell banner output in Telegram.
-6. Verify the active session details keypad is shown.
+### Step 2.5: Workspace editing from CLI
+1. Open workspace management from the dashboard.
+2. Add a temporary workspace.
+3. Edit it.
+4. Delete it.
+5. Verify `data/workspaces.json` reflects each change.
 
-### Step 2.6: Interactive Input & Controls
-1. Type a command (e.g. `whoami` or `dir` / `ls`) directly into the Telegram chat box and send it.
-2. Verify the command gets sent, and the output is streamed back inside a code block.
-3. Tap the **⏎ Send Enter** button. Verify a carriage return is transmitted.
-4. Run a persistent command (e.g. `ping 127.0.0.1 -t` on Windows or `ping 127.0.0.1` on Linux).
-5. Let it stream for a few seconds. Tap the **🛑 Ctrl+C** button.
-6. Verify that the ping execution halts and returns control to the shell prompt.
+### Step 2.6: Startup with OS
+1. Open startup configuration from the dashboard.
+2. Select `background` or `open-ui`.
+3. Verify the app creates the expected Windows or Linux startup artifact.
+4. Switch back to `disabled` and verify the artifact is removed.
 
-### Step 2.7: Confirmation Prompt Flow
-1. Run a command that prompts for confirmation. For example, run:
-   * On CMD/Powershell: `rmdir /s non_existent_folder` (it will ask `..., Are you sure (Y/N)?`)
-2. Verify that the bot intercepts this prompt and pops up a custom menu:
-   * `Yes (y)`
-   * `No (n)`
-   * `Enter`
-   * `Ctrl+C`
-3. Tap `Yes (y)` or `No (n)` and verify the terminal processes the response correctly.
+## 3. Telegram Runtime Verification
 
----
+### Step 3.1: Telegram access
+1. Start the background runtime from the dashboard.
+2. Open Telegram and message the bot.
+3. Send `/start`.
+4. Verify the main menu appears.
+5. Send `/status`.
+6. Verify the bot reports workspace and runtime status.
 
-## 3. Windows-Specific Verification Checklist
-Since Windows command paths and terminal shell behaviors are distinct from Unix:
-- [ ] Command resolution: Ensure `powershell.exe` and `cmd.exe` spawn clean shells (no crash or loop).
-- [ ] Backslash resolution: Paths in `data/workspaces.json` should support either forward slashes (`/`) or escaped backslashes (`\\`). The client converts them properly to prevent PTY spawning crashes.
-- [ ] global commands: If `codex` or `antigravity` are installed, check if `codex.cmd` and `antigravity.cmd` are properly located within the user's `PATH`. If they throw errors, utilize the `CODEX_CMD` or `ANTIGRAVITY_CMD` overrides in `apps/client/.env`.
+### Step 3.2: Workspace and session flow
+1. Open **Workspaces** from Telegram.
+2. Select a workspace.
+3. Start a `Powershell` session on Windows, or `Bash` where available.
+4. Verify shell output appears in Telegram.
+
+### Step 3.3: Interactive control
+1. Send a command such as `pwd`, `dir`, or `Get-Location`.
+2. Verify output is returned.
+3. Use session buttons for `Enter`, `Up`, `Down`, and `Interrupt`.
+4. Verify session controls continue working.
+
+### Step 3.4: Confirmation prompt handling
+1. Run a command that triggers a confirmation prompt.
+2. Verify the Telegram confirmation keyboard appears.
+3. Send a confirmation action.
+4. Verify the PTY receives the action.
+
+## 4. Platform Notes
+- [ ] On Windows, `powershell.exe` launches cleanly under `node-pty`.
+- [ ] On Linux, startup integration writes either a user service or desktop autostart entry.
+- [ ] If `codex` or `agy` are not globally available, `CODEX_CMD` or `ANTIGRAVITY_CMD` in the root `.env` work as expected.
