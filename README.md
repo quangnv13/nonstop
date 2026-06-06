@@ -1,6 +1,8 @@
-# 🚀 nonstop
+<h1 align="center">🚀 nonstop</h1>
 
-🌐**English** | 🌐 [Tiếng Việt](./README.vi.md)
+<p align="center">
+  🌐 <b>English</b> | 🌐 <a href="./README.vi.md">Tiếng Việt</a>
+</p>
 
 <p align="center">
   <img src="./images/nonstop.png" alt="nonstop Banner" width="800px" style="border-radius: 8px;" />
@@ -39,9 +41,9 @@
 * **📂 Smart Workspaces** — Navigate and switch between different working directories on your machine with a few taps.
 * **🔄 Optimized Output Stream** — Advanced batch-delivery mechanics with configurable output intervals (`OUTPUT_INTERVAL`) and interaction-triggered flush delays (`ACTION_INTERVAL`), ensuring fluid terminal logs inside Telegram without hitting API limits.
 * **🚀 Native OS Autostart** — Easy configuration to run as a background service on OS startup (supports Windows and Linux).
+* **🔄 Seamless Remote/Local Switching** — Continue background PTY sessions directly from your computer terminal. The Telegram output sync automatically pauses during active local interaction to prevent rate limits, then flushes a final summary snapshot of the session to Telegram immediately when you detach (via `Ctrl+B` then `D`).
 * **⚠️ Dangerous Command Protection** — Intercepts and prompts for confirmation (via Telegram inline buttons) before executing commands matching a customizable comma-separated list of dangerous patterns, preventing accidental system damage.
 * **🌐 Bilingual Support** — Fully localized in English (`en`) and Vietnamese (`vi`).
-* **🔄 Seamless Remote/Local Switching** — Continue background PTY sessions directly from your computer terminal. The Telegram output sync automatically pauses during active local interaction to prevent rate limits, then flushes a final summary snapshot of the session to Telegram immediately when you detach (via `Ctrl+B` then `D`).
 * **🛡️ Hardened Security** — Hardened token validation and authorization checks, restricting control access strictly to the configured admin account.
 
 

@@ -1,6 +1,8 @@
-# 🚀 nonstop
+<h1 align="center">🚀 nonstop</h1>
 
-[English](./README.md) | 🌐 **Tiếng Việt**
+<p align="center">
+  <a href="./README.md">English</a> | 🌐 <b>Tiếng Việt</b>
+</p>
 
 <p align="center">
   <img src="./images/nonstop.png" alt="nonstop Banner" width="800px" style="border-radius: 8px;" />
@@ -39,9 +41,9 @@
 * **📂 Quản Lý Workspace Linh Hoạt** — Điều hướng và chuyển đổi nhanh chóng giữa các thư mục làm việc khác nhau trên máy chủ cục bộ.
 * **🔄 Luồng Đầu Ra Được Tối Ưu Hóa** — Cơ chế gom cụm đầu ra thông minh với khoảng giãn cách cấu hình được (`OUTPUT_INTERVAL`) và độ trễ flush kích hoạt bởi tương tác (`ACTION_INTERVAL`), giúp nhật ký terminal hiển thị mượt mà trên Telegram mà không vượt quá giới hạn API.
 * **🚀 Khởi Động Cùng Hệ Điều Hành** — Dễ dàng cấu hình để chạy như một dịch vụ nền khi hệ thống khởi động (hỗ trợ Windows và Linux).
+* **🔄 Chuyển Đổi Trực Tiếp/Từ Xa Liền Mạch** — Tiếp tục tương tác trực tiếp với phiên PTY chạy nền ngay từ terminal máy tính. Luồng đồng bộ tin nhắn lên Telegram tự động tạm ngưng khi bạn đang thao tác cục bộ để tránh bị giới hạn API, và tự động gửi 1 tin nhắn tóm tắt trạng thái cuối cùng lên Telegram ngay khi bạn ngắt kết nối (bằng phím tắt `Ctrl+B` rồi `D`).
 * **⚠️ Bảo Vệ Lệnh Nguy Hiểm** — Tự động chặn và yêu cầu xác thực (thông qua nút bấm inline Telegram) trước khi thực thi các lệnh khớp với danh sách cấu hình, giúp hạn chế rủi ro phá hoại hệ thống ngoài ý muốn.
 * **🌐 Hỗ Trợ Đa Ngôn Ngữ** — Bản dịch hoàn chỉnh cho tiếng Anh (`en`) và tiếng Việt (`vi`).
-* **🔄 Chuyển Đổi Trực Tiếp/Từ Xa Liền Mạch** — Tiếp tục tương tác trực tiếp với phiên PTY chạy nền ngay từ terminal máy tính. Luồng đồng bộ tin nhắn lên Telegram tự động tạm ngưng khi bạn đang thao tác cục bộ để tránh bị giới hạn API, và tự động gửi 1 tin nhắn tóm tắt trạng thái cuối cùng lên Telegram ngay khi bạn ngắt kết nối (bằng phím tắt `Ctrl+B` rồi `D`).
 * **🛡️ Bảo Mật Nghiêm Ngặt** — Xác thực token và kiểm tra quyền hạn chặt chẽ, chỉ cho phép tài khoản Admin đã cấu hình điều khiển hệ thống.
 
 
