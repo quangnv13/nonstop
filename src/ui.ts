@@ -79,9 +79,19 @@ async function askWithDefault(
 async function runSelectionMenu<T>(
   headerRenderer: () => void,
   options: Option<T>[],
-  initialIndex: number = 0
+  initialIndex: number = 0,
+  language?: AppLanguage
 ): Promise<T> {
   let selectedIndex = Math.min(initialIndex, options.length - 1);
+  let resolvedLang = language;
+  if (!resolvedLang) {
+    try {
+      resolvedLang = loadConfigFromDisk().language;
+    } catch {
+      resolvedLang = 'en';
+    }
+  }
+  const isVi = resolvedLang === 'vi';
 
   return new Promise<T>((resolve, reject) => {
     const isTTY = process.stdin.isTTY;
@@ -107,7 +117,7 @@ async function runSelectionMenu<T>(
         }
       });
       console.log('');
-      console.log(chalk.gray('  ↑↓ di chuyển   Enter xác nhận'));
+      console.log(chalk.gray(isVi ? '  ↑↓ di chuyển   Enter xác nhận' : '  ↑↓ navigate    Enter to select'));
     }
 
     try {
@@ -150,13 +160,35 @@ function renderDashboardHeader(config: AppConfig, snapshot: RuntimeStateSnapshot
   const session = snapshot?.activeSession;
   const isVi = config.language === 'vi';
 
-  console.log(titleBox('nonstop client'));
+  let modeLabel = '';
+  if (snapshot) {
+    if (snapshot.mode === 'background') {
+      modeLabel = isVi ? 'chạy nền' : 'background';
+    } else if (snapshot.mode === 'foreground') {
+      modeLabel = isVi ? 'chạy trực tiếp' : 'foreground';
+    } else {
+      modeLabel = snapshot.mode;
+    }
+  }
+
+  let startupModeLabel = '';
+  if (config.startupMode === 'disabled') {
+    startupModeLabel = isVi ? 'Tắt' : 'Disabled';
+  } else if (config.startupMode === 'background') {
+    startupModeLabel = isVi ? 'Chạy nền' : 'Background';
+  } else if (config.startupMode === 'open-ui') {
+    startupModeLabel = isVi ? 'Mở giao diện' : 'Open UI';
+  } else {
+    startupModeLabel = config.startupMode;
+  }
+
+  console.log(titleBox(t('dashboard.title')));
   console.log('');
-  console.log(infoRow(isVi ? 'Trạng thái' : 'Status', isRunning ? `${runtimeLabel}  ${chalk.gray(`(${snapshot!.mode})`)}` : runtimeLabel));
+  console.log(infoRow(isVi ? 'Trạng thái' : 'Status', isRunning ? `${runtimeLabel}  ${chalk.gray(`(${modeLabel})`)}` : runtimeLabel));
   console.log(infoRow('Client', config.clientName, chalk.white));
   console.log(infoRow('Admin', config.adminUsername || '-', chalk.white));
   console.log(infoRow(isVi ? 'Ngôn ngữ' : 'Language', config.language === 'vi' ? 'Tiếng Việt' : 'English', chalk.white));
-  console.log(infoRow(isVi ? 'Khởi động' : 'Startup', config.startupMode, chalk.white));
+  console.log(infoRow(isVi ? 'Khởi động' : 'Startup', startupModeLabel, chalk.white));
   if (snapshot?.startedAt) {
     const dt = new Date(snapshot.startedAt);
     console.log(infoRow(isVi ? 'Bật lúc' : 'Started at', dt.toLocaleTimeString(isVi ? 'vi-VN' : 'en-US'), chalk.white));
@@ -253,7 +285,8 @@ export async function launchControlCenter(): Promise<void> {
         { label: isVi ? 'Có, nâng cấp ngay' : 'Yes, upgrade now', value: true },
         { label: isVi ? 'Không, để sau' : 'No, skip for now', value: false }
       ],
-      0
+      0,
+      config.language
     );
 
     if (upgradeChoice) {
@@ -291,7 +324,8 @@ export async function launchControlCenter(): Promise<void> {
       const choice = await runSelectionMenu(
         () => renderDashboardHeader(config, getRuntimeStatus().snapshot),
         options,
-        lastSelection
+        lastSelection,
+        config.language
       );
 
       lastSelection = options.findIndex(opt => opt.value === choice);
@@ -355,7 +389,9 @@ async function manageActiveSessions(language: AppLanguage): Promise<void> {
             : '  Select a session to continue locally:'));
         }
       },
-      options
+      options,
+      0,
+      language
     );
 
     if (choice.type === 'back') {
@@ -373,14 +409,15 @@ async function runSetupWizard(
 ): Promise<AppConfig> {
   const language = await runSelectionMenu(
     () => {
-      console.log(titleBox('Thiết lập nonstop'));
-      console.log(chalk.gray('  Chọn ngôn ngữ / Choose language:'));
+      console.log(titleBox(currentConfig.language === 'vi' ? 'Thiết lập nonstop' : 'nonstop Setup'));
+      console.log(chalk.gray(currentConfig.language === 'vi' ? '  Chọn ngôn ngữ / Choose language:' : '  Choose language / Chọn ngôn ngữ:'));
     },
     [
       { label: 'Tiếng Việt (vi)', value: 'vi' as AppLanguage },
       { label: 'English (en)', value: 'en' as AppLanguage }
     ],
-    currentConfig.language === 'en' ? 1 : 0
+    currentConfig.language === 'en' ? 1 : 0,
+    currentConfig.language
   );
 
   const t = createTranslator(language);
@@ -399,11 +436,12 @@ async function runSetupWizard(
       console.log(chalk.gray(`  ${t('wizard.startupMode')}:`));
     },
     [
-      { label: `Tắt (disabled)`, value: 'disabled' as StartupMode },
-      { label: `Chạy nền (background)`, value: 'background' as StartupMode },
-      { label: `Mở giao diện (open-ui)`, value: 'open-ui' as StartupMode }
+      { label: t('startup.disabled'), value: 'disabled' as StartupMode },
+      { label: t('startup.background'), value: 'background' as StartupMode },
+      { label: t('startup.openUi'), value: 'open-ui' as StartupMode }
     ],
-    0
+    0,
+    language
   );
 
   const nextConfig: AppConfig = {
@@ -501,7 +539,9 @@ async function manageWorkspaces(
         console.log(titleBox(isVi ? 'Quản lý không gian làm việc' : 'Manage Workspaces'));
         console.log(chalk.gray(`  ${isVi ? 'Chọn không gian làm việc hoặc thêm mới:' : 'Select workspace or add new:'}`));
       },
-      options
+      options,
+      0,
+      language
     );
 
     if (selection.type === 'back') return;
@@ -545,7 +585,9 @@ async function manageWorkspaces(
           { label: isVi ? 'Sửa không gian làm việc' : 'Edit workspace', value: 'edit' },
           { label: isVi ? 'Xóa không gian làm việc' : 'Delete workspace', value: 'delete' },
           { label: isVi ? '← Quay lại' : '← Back', value: 'back' }
-        ]
+        ],
+        0,
+        language
       );
 
       if (action === 'back') continue;
@@ -594,7 +636,8 @@ async function configureStartup(
       { label: isVi ? 'Chạy nền (background)' : 'Background', value: 'background' as StartupMode },
       { label: isVi ? 'Mở giao diện (open-ui)' : 'Open UI', value: 'open-ui' as StartupMode }
     ],
-    ['disabled', 'background', 'open-ui'].indexOf(config.startupMode)
+    ['disabled', 'background', 'open-ui'].indexOf(config.startupMode),
+    config.language
   );
 
   const entryScriptPath = getEntryScriptPath();
@@ -614,14 +657,15 @@ async function switchLanguage(
 ): Promise<AppConfig> {
   const language = await runSelectionMenu(
     () => {
-      console.log(titleBox('Đổi ngôn ngữ / Switch language'));
-      console.log(chalk.gray(`  Hiện tại: ${config.language}`));
+      console.log(titleBox(config.language === 'vi' ? 'Đổi ngôn ngữ' : 'Switch Language'));
+      console.log(chalk.gray(config.language === 'vi' ? `  Hiện tại: ${config.language}` : `  Current: ${config.language}`));
     },
     [
       { label: 'Tiếng Việt (vi)', value: 'vi' as AppLanguage },
       { label: 'English (en)', value: 'en' as AppLanguage }
     ],
-    config.language === 'en' ? 1 : 0
+    config.language === 'en' ? 1 : 0,
+    config.language
   );
 
   const nextConfig = { ...config, language };

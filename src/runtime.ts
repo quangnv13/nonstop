@@ -157,19 +157,19 @@ export class NonstopRuntime {
 
     await this.bot.start({
       onStart: async (botInfo) => {
-        logger.info('Telegram bot đã khởi động', {
+        logger.info('Telegram bot started', {
           username: botInfo.username,
           mode: this.mode
         });
 
-        // Gửi thông báo hello tới Telegram
+        // Send startup notification to Telegram
         const lastChatId = loadLastChatId();
         if (lastChatId && this.bot) {
           try {
-            await this.bot.pushSessionOutput(
-              lastChatId,
-              `✅ nonstop client đã khởi động thành công và đang chạy!\n🖥 Client: ${this.config.clientName}`
-            );
+            const startupMsg = this.config.language === 'vi'
+              ? `✅ nonstop client đã khởi động thành công và đang chạy!\n🖥 Client: ${this.config.clientName}`
+              : `✅ nonstop client started successfully and is running!\n🖥 Client: ${this.config.clientName}`;
+            await this.bot.pushSessionOutput(lastChatId, startupMsg);
           } catch {
             // ignore
           }

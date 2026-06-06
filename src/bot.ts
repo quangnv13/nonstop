@@ -97,7 +97,7 @@ export function loadLastChatId(): number | null {
 export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
-    throw new Error('TELEGRAM_BOT_TOKEN là bắt buộc.');
+    throw new Error('TELEGRAM_BOT_TOKEN is required.');
   }
 
   const bot = new Bot(token);
@@ -759,7 +759,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       await deps.startSession(ctx.chat.id, workspace.id, preset);
       await showSessionDetails(ctx);
     } catch (error) {
-      logger.error('Lỗi khi khởi chạy session', {
+      logger.error('Error starting session', {
         workspaceId,
         preset,
         error: error instanceof Error ? error.message : String(error)
@@ -819,7 +819,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
   });
 
   bot.catch((error) => {
-    logger.error('Lỗi bot handler', {
+    logger.error('Bot handler error', {
       error: error.error instanceof Error ? error.error.message : String(error.error)
     });
   });
