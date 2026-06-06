@@ -1,5 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import { exec, execSync, spawn } from 'child_process';
 import * as readline from 'node:readline';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
@@ -169,12 +171,116 @@ function renderDashboardHeader(config: AppConfig, snapshot: RuntimeStateSnapshot
   console.log(chalk.bold.blue('  ' + t('dashboard.menu')));
 }
 
+function getCurrentVersion(): string {
+  try {
+    const pkgPath = path.join(__dirname, '..', 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    return pkg.version;
+  } catch {
+    return '1.0.13';
+  }
+}
+
+function checkForUpdate(currentVersion: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      resolve(null);
+    }, 4000);
+
+    exec('npm view @quangnv13/nonstop version', (error, stdout) => {
+      clearTimeout(timer);
+      if (error) {
+        resolve(null);
+        return;
+      }
+      const latest = stdout.trim();
+      if (latest && latest !== currentVersion) {
+        resolve(latest);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+async function executeUpgrade(latestVersion: string, isVi: boolean): Promise<void> {
+  clearScreen();
+  console.log(titleBox(isVi ? 'Đang nâng cấp nonstop' : 'Upgrading nonstop'));
+  console.log('');
+
+  const platform = os.platform();
+  if (platform === 'win32') {
+    console.log(chalk.yellow(isVi 
+      ? '  Đang mở cửa sổ PowerShell mới để nâng cấp. Tiến trình hiện tại sẽ tự đóng...' 
+      : '  Opening new PowerShell window for upgrade. Current process will exit...'));
+
+    const cmd = 'cmd.exe';
+    const args = [
+      '/c',
+      'start',
+      'powershell',
+      '-NoProfile',
+      '-Command',
+      `Start-Sleep -Seconds 1; Write-Host 'Đang nâng cấp @quangnv13/nonstop lên phiên bản ${latestVersion}...'; npm install -g @quangnv13/nonstop@latest; Write-Host 'Hoàn tất! Cửa sổ này sẽ tự đóng sau 3 giây...'; Start-Sleep -Seconds 3`
+    ];
+
+    spawn(cmd, args, {
+      detached: true,
+      stdio: 'ignore',
+      shell: true
+    }).unref();
+
+    process.exit(0);
+  } else {
+    console.log(chalk.blue(isVi ? '  Đang chạy lệnh cài đặt...' : '  Running install command...'));
+    try {
+      execSync('npm install -g @quangnv13/nonstop@latest', { stdio: 'inherit' });
+      console.log(chalk.green(isVi ? '\n  ✓ Nâng cấp thành công! Vui lòng khởi động lại nonstop.' : '\n  ✓ Upgrade successful! Please restart nonstop.'));
+      await pause();
+      process.exit(0);
+    } catch (error) {
+      console.error(chalk.red(isVi ? '\n  ❌ Lỗi nâng cấp: ' : '\n  ❌ Upgrade failed: '), error);
+      await pause();
+    }
+  }
+}
+
 export async function launchControlCenter(): Promise<void> {
   ensureEnvExampleFile();
   let config = loadConfigFromDisk();
 
   const isTTY = process.stdin.isTTY;
   const wasRaw = process.stdin.isRaw;
+
+  // 1. Kiểm tra cập nhật khi khởi chạy
+  const currentVersion = getCurrentVersion();
+  console.log(chalk.gray(`\n  ${config.language === 'vi' ? 'Đang kiểm tra cập nhật' : 'Checking for updates'} (v${currentVersion})...`));
+  const latestVersion = await checkForUpdate(currentVersion);
+
+  if (latestVersion) {
+    clearScreen();
+    const isVi = config.language === 'vi';
+    const upgradeChoice = await runSelectionMenu(
+      () => {
+        console.log(titleBox(isVi ? 'Có bản cập nhật mới!' : 'Update Available!'));
+        console.log('');
+        console.log(`  ${isVi ? 'Phiên bản hiện tại:' : 'Current version:'} ${chalk.yellow(currentVersion)}`);
+        console.log(`  ${isVi ? 'Phiên bản mới nhất:' : 'Latest version:'} ${chalk.green(latestVersion)}`);
+        console.log('');
+        console.log(chalk.bold(`  ${isVi ? 'Bạn có muốn nâng cấp ngay bây giờ không?' : 'Do you want to upgrade now?'}`));
+      },
+      [
+        { label: isVi ? 'Có, nâng cấp ngay' : 'Yes, upgrade now', value: true },
+        { label: isVi ? 'Không, để sau' : 'No, skip for now', value: false }
+      ],
+      0
+    );
+
+    if (upgradeChoice) {
+      await executeUpgrade(latestVersion, isVi);
+      return;
+    }
+  }
 
   try {
     if (getMissingConfigFields(config).length > 0) {
