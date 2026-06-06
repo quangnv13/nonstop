@@ -150,6 +150,18 @@ APP_LANGUAGE=en
 STARTUP_MODE=disabled
 ```
 
+### 🤖 Hướng Dẫn Tạo Bot Telegram
+Để khởi chạy `nonstop`, bạn cần chuẩn bị một token của bot Telegram. Dưới đây là hướng dẫn tạo bot qua `@BotFather`:
+
+1. Mở ứng dụng Telegram, tìm kiếm **@BotFather** (chú ý chọn tài khoản có dấu tích xanh xác thực).
+2. Nhấn **Start** (hoặc gửi lệnh `/start`).
+3. Gửi lệnh `/newbot` để bắt đầu quy trình tạo bot mới.
+4. Nhập tên hiển thị cho bot của bạn (ví dụ: `My Nonstop Controller`).
+5. Nhập tên người dùng (username) duy nhất cho bot, tên này bắt buộc phải kết thúc bằng chữ `bot` (ví dụ: `my_nonstop_bot`).
+6. Sau khi hoàn thành, `@BotFather` sẽ gửi lại cho bạn một mã **HTTP API Access Token** (dạng như: `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`).
+7. Hãy bảo mật mã token này! Copy token này và dán vào file `.env` ở trường `TELEGRAM_BOT_TOKEN`, hoặc điền trực tiếp vào Trình hướng dẫn thiết lập (Setup Wizard) khi khởi chạy `nonstop` lần đầu tiên.
+
+
 ---
 
 ## 🛡️ Khuyến Nghị Bảo Mật

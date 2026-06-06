@@ -150,6 +150,18 @@ APP_LANGUAGE=en
 STARTUP_MODE=disabled
 ```
 
+### 🤖 Creating Your Telegram Bot
+To run `nonstop`, you must obtain a Telegram Bot token. Here is how to create one using `@BotFather`:
+
+1. Open Telegram and search for **@BotFather** (ensure it has the verified blue checkmark).
+2. Start a chat and click **Start** (or send the `/start` command).
+3. Send the `/newbot` command to initiate the bot creation process.
+4. Choose a friendly name for your bot (e.g., `My Nonstop Controller`).
+5. Choose a unique username for your bot, which must end in `bot` (e.g., `my_nonstop_bot`).
+6. Once created, `@BotFather` will reply with your **HTTP API Access Token** (e.g., `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`).
+7. Keep this token private! Copy the token and paste it into your `.env` file as `TELEGRAM_BOT_TOKEN`, or enter it directly into the Setup Wizard when starting `nonstop` for the first time.
+
+
 ---
 
 ## 🛡️ Security Best Practices
