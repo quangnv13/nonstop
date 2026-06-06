@@ -42,6 +42,10 @@ export function stopBackgroundRuntime(snapshot: RuntimeStateSnapshot | null): st
     return 'Background runtime is not running.';
   }
 
-  process.kill(snapshot.pid);
-  return `Stopped nonstop background runtime (${snapshot.pid}).`;
+  try {
+    process.kill(snapshot.pid);
+    return `Stopped nonstop background runtime (${snapshot.pid}).`;
+  } catch (error) {
+    throw new Error(`Failed to stop background runtime (${snapshot.pid}): ${error instanceof Error ? error.message : String(error)}`);
+  }
 }

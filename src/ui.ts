@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as readline from 'node:readline';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import {
@@ -29,85 +30,221 @@ const COLORS = {
   bold: '\u001b[1m'
 };
 
+interface Option<T> {
+  label: string;
+  value: T;
+}
+
+/**
+ * Renders an interactive CLI selection menu with arrow keys.
+ * Ensures raw mode and cursor visibility are properly restored in try-finally.
+ */
+async function runSelectionMenu<T>(
+  headerRenderer: () => void,
+  options: Option<T>[],
+  initialIndex: number = 0
+): Promise<T> {
+  let selectedIndex = initialIndex;
+  
+  return new Promise<T>((resolve, reject) => {
+    const isTTY = process.stdin.isTTY;
+    const wasRaw = process.stdin.isRaw;
+    
+    const cleanup = () => {
+      process.stdin.removeListener('keypress', onKeypress);
+      // Restore cursor visibility
+      process.stdout.write('\u001b[?25h');
+      if (isTTY) {
+        try {
+          process.stdin.setRawMode(wasRaw);
+        } catch {
+          // Ignore
+        }
+      }
+    };
+
+    function render() {
+      clearScreen();
+      headerRenderer();
+      options.forEach((opt, idx) => {
+        if (idx === selectedIndex) {
+          // Premium visually highlight: cyan arrow and bold cyan label
+          console.log(`  ${COLORS.cyan}➔ ${COLORS.bold}${COLORS.cyan}${opt.label}${COLORS.reset}`);
+        } else {
+          console.log(`     ${COLORS.gray}${opt.label}${COLORS.reset}`);
+        }
+      });
+    }
+
+    try {
+      readline.emitKeypressEvents(process.stdin);
+      if (isTTY) {
+        process.stdin.setRawMode(true);
+      }
+      // Hide cursor for cleaner interaction
+      process.stdout.write('\u001b[?25l');
+    } catch (err) {
+      cleanup();
+      reject(err);
+      return;
+    }
+
+    render();
+
+    function onKeypress(str: string, key: any) {
+      if (key && key.ctrl && key.name === 'c') {
+        cleanup();
+        process.exit(0);
+      }
+
+      if (key) {
+        if (key.name === 'up') {
+          selectedIndex = (selectedIndex - 1 + options.length) % options.length;
+          render();
+        } else if (key.name === 'down') {
+          selectedIndex = (selectedIndex + 1) % options.length;
+          render();
+        } else if (key.name === 'return' || key.name === 'enter') {
+          cleanup();
+          resolve(options[selectedIndex].value);
+        }
+      }
+    }
+
+    process.stdin.on('keypress', onKeypress);
+  });
+}
+
 export async function launchControlCenter(): Promise<void> {
   ensureEnvExampleFile();
   let config = loadConfigFromDisk();
 
-  if (getMissingConfigFields(config).length > 0) {
-    config = await runSetupWizard(config);
-  }
-
-  const rl = createInterface({ input, output });
+  const isTTY = process.stdin.isTTY;
+  const wasRaw = process.stdin.isRaw;
 
   try {
-    while (true) {
-      clearScreen();
-      renderDashboard(config, getRuntimeStatus().snapshot);
-      const answer = (await rl.question(`\n${COLORS.cyan}${createTranslator(config.language)('dashboard.choice')}: ${COLORS.reset}`)).trim().toLowerCase();
+    if (getMissingConfigFields(config).length > 0) {
+      config = await runSetupWizard(config);
+    }
 
-      if (answer === '1') {
-        await handleToggleRuntime(config, rl);
-        continue;
-      }
+    const rl = createInterface({ input, output });
 
-      if (answer === '2') {
-        config = await editConfig(config, rl);
-        continue;
-      }
+    try {
+      let lastSelection = 0;
+      while (true) {
+        const t = createTranslator(config.language);
+        const options = [
+          { label: t('menu.toggleRuntime'), value: 'toggle' },
+          { label: t('menu.settings'), value: 'settings' },
+          { label: t('menu.workspaces'), value: 'workspaces' },
+          { label: t('menu.startup'), value: 'startup' },
+          { label: t('menu.language'), value: 'language' },
+          { label: t('menu.logs'), value: 'logs' },
+          { label: t('menu.exit'), value: 'exit' }
+        ];
 
-      if (answer === '3') {
-        await manageWorkspaces(rl, config.language);
-        continue;
-      }
+        const choice = await runSelectionMenu(
+          () => renderDashboardHeader(config, getRuntimeStatus().snapshot),
+          options,
+          lastSelection
+        );
 
-      if (answer === '4') {
-        config = await configureStartup(config, rl);
-        continue;
-      }
+        lastSelection = options.findIndex(opt => opt.value === choice);
 
-      if (answer === '5') {
-        config = await switchLanguage(config, rl);
-        continue;
-      }
+        if (choice === 'exit') {
+          break;
+        }
 
-      if (answer === '6') {
-        await showRecentLogs(rl);
-        continue;
-      }
+        if (choice === 'toggle') {
+          await handleToggleRuntime(config, rl);
+          continue;
+        }
 
-      if (answer === 'q' || answer === '7') {
-        break;
+        if (choice === 'settings') {
+          config = await editConfig(config, rl);
+          continue;
+        }
+
+        if (choice === 'workspaces') {
+          await manageWorkspaces(rl, config.language);
+          continue;
+        }
+
+        if (choice === 'startup') {
+          config = await configureStartup(config, rl);
+          continue;
+        }
+
+        if (choice === 'language') {
+          config = await switchLanguage(config, rl);
+          continue;
+        }
+
+        if (choice === 'logs') {
+          await showRecentLogs(rl);
+          continue;
+        }
       }
+    } finally {
+      rl.close();
     }
   } finally {
-    rl.close();
+    // Ultimate fallback cleanup to guarantee terminal usability
+    process.stdout.write('\u001b[?25h');
+    if (isTTY) {
+      try {
+        process.stdin.setRawMode(wasRaw);
+      } catch {
+        // Ignore
+      }
+    }
   }
 }
 
 async function runSetupWizard(currentConfig: AppConfig): Promise<AppConfig> {
+  const languageOptions = [
+    { label: 'English (en)', value: 'en' as AppLanguage },
+    { label: 'Tiếng Việt (vi)', value: 'vi' as AppLanguage }
+  ];
+  
+  const language = await runSelectionMenu(
+    () => {
+      console.log(titleBlock('nonstop setup wizard'));
+      console.log(`${COLORS.gray}Choose language / Chon ngon ngu:${COLORS.reset}\n`);
+    },
+    languageOptions,
+    currentConfig.language === 'vi' ? 1 : 0
+  );
+
+  const t = createTranslator(language);
   const rl = createInterface({ input, output });
 
   try {
-    clearScreen();
-    const languageAnswer = (
-      await rl.question(`${COLORS.cyan}Language / Ngon ngu [en/vi] (${currentConfig.language}): ${COLORS.reset}`)
-    ).trim();
-
-    const language: AppLanguage =
-      languageAnswer === 'vi' || languageAnswer === 'en' ? languageAnswer : currentConfig.language;
-    const t = createTranslator(language);
-
     clearScreen();
     console.log(titleBlock(t('wizard.title')));
 
     const telegramBotToken = await askWithDefault(rl, t('wizard.token'), currentConfig.telegramBotToken);
     const adminUsername = await askWithDefault(rl, t('wizard.admin'), currentConfig.adminUsername);
     const clientName = await askWithDefault(rl, t('wizard.clientName'), currentConfig.clientName);
-    const startupMode = (await askWithDefault(
-      rl,
-      t('wizard.startupMode'),
-      currentConfig.startupMode
-    )) as StartupMode;
+
+    rl.close(); // Temporarily close rl for the next interactive selection
+
+    const startupOptions: { label: string; value: StartupMode }[] = [
+      { label: `${t('startup.disabled')} (disabled)`, value: 'disabled' },
+      { label: `${t('startup.background')} (background)`, value: 'background' },
+      { label: `${t('startup.openUi')} (open-ui)`, value: 'open-ui' }
+    ];
+
+    const startupMode = await runSelectionMenu(
+      () => {
+        console.log(titleBlock(t('wizard.title')));
+        console.log(`${COLORS.gray}${t('wizard.startupMode')}:${COLORS.reset}\n`);
+      },
+      startupOptions,
+      startupOptions.findIndex(opt => opt.value === currentConfig.startupMode) !== -1
+        ? startupOptions.findIndex(opt => opt.value === currentConfig.startupMode)
+        : 0
+    );
 
     const nextConfig: AppConfig = {
       ...currentConfig,
@@ -116,19 +253,29 @@ async function runSetupWizard(currentConfig: AppConfig): Promise<AppConfig> {
       adminUsername,
       telegramUsername: adminUsername,
       clientName,
-      startupMode: normalizeStartupMode(startupMode)
+      startupMode
     };
 
     saveConfigToDisk(nextConfig);
-    console.log(`\n${COLORS.green}${t('wizard.complete')}${COLORS.reset}`);
-    await pause(rl);
+
+    // Recreate rl to call pause()
+    const rl2 = createInterface({ input, output });
+    try {
+      clearScreen();
+      console.log(titleBlock(t('wizard.title')));
+      console.log(`\n${COLORS.green}${t('wizard.complete')}${COLORS.reset}`);
+      await pause(rl2);
+    } finally {
+      rl2.close();
+    }
+
     return nextConfig;
   } finally {
     rl.close();
   }
 }
 
-function renderDashboard(config: AppConfig, snapshot: RuntimeStateSnapshot | null): void {
+function renderDashboardHeader(config: AppConfig, snapshot: RuntimeStateSnapshot | null): void {
   const t = createTranslator(config.language);
   const runtimeStatus = snapshot ? t('dashboard.running') : t('dashboard.stopped');
   const runtimeColor = snapshot ? COLORS.green : COLORS.red;
@@ -156,13 +303,6 @@ function renderDashboard(config: AppConfig, snapshot: RuntimeStateSnapshot | nul
   }
 
   console.log(`\n${COLORS.blue}${t('dashboard.menu')}${COLORS.reset}`);
-  console.log(`  1. ${t('menu.toggleRuntime')}`);
-  console.log(`  2. ${t('menu.settings')}`);
-  console.log(`  3. ${t('menu.workspaces')}`);
-  console.log(`  4. ${t('menu.startup')}`);
-  console.log(`  5. ${t('menu.language')}`);
-  console.log(`  6. ${t('menu.logs')}`);
-  console.log(`  7. ${t('menu.exit')}`);
 }
 
 async function handleToggleRuntime(
@@ -188,6 +328,8 @@ async function editConfig(
   rl: ReturnType<typeof createInterface>
 ): Promise<AppConfig> {
   clearScreen();
+  console.log(titleBlock(config.language === 'vi' ? 'Sua cau hinh' : 'Edit config'));
+  
   const nextConfig: AppConfig = {
     ...config,
     telegramBotToken: await askWithDefault(rl, 'TELEGRAM_BOT_TOKEN', config.telegramBotToken),
@@ -209,80 +351,165 @@ async function manageWorkspaces(
   rl: ReturnType<typeof createInterface>,
   language: AppLanguage
 ): Promise<void> {
+  const isVi = language === 'vi';
+  
   while (true) {
-    clearScreen();
     const workspaces = loadWorkspaces();
-    console.log(titleBlock(language === 'vi' ? 'Quan ly workspace' : 'Manage workspaces'));
-    workspaces.forEach((workspace, index) => {
-      console.log(`  ${index + 1}. ${workspace.name} ${COLORS.gray}${workspace.path}${COLORS.reset}`);
+    const options: { label: string; value: { type: 'add' | 'workspace' | 'back'; index?: number } }[] = [];
+    
+    // Add option
+    options.push({
+      label: isVi ? '+ Them workspace moi' : '+ Add new workspace',
+      value: { type: 'add' }
     });
-    console.log('\n  a. Add workspace');
-    console.log('  e. Edit workspace');
-    console.log('  d. Delete workspace');
-    console.log('  q. Back');
 
-    const answer = (await rl.question('\nChoice: ')).trim().toLowerCase();
-    if (answer === 'q') {
+    // Workspace options
+    workspaces.forEach((workspace, index) => {
+      options.push({
+        label: `● ${workspace.name} (${workspace.path})`,
+        value: { type: 'workspace', index }
+      });
+    });
+
+    // Back option
+    options.push({
+      label: isVi ? '← Quay lai menu chinh' : '← Back to main menu',
+      value: { type: 'back' }
+    });
+
+    const titleText = isVi ? 'Quan ly workspace' : 'Manage workspaces';
+
+    const selection = await runSelectionMenu(
+      () => {
+        console.log(titleBlock(titleText));
+        console.log(`${COLORS.gray}${isVi ? 'Chon workspace de chinh sua/xoa hoac tao moi:' : 'Select a workspace to edit/delete or add new:'}${COLORS.reset}\n`);
+      },
+      options
+    );
+
+    if (selection.type === 'back') {
       return;
     }
 
-    if (answer === 'a') {
-      const name = await rl.question('Workspace name: ');
-      const workspacePath = await rl.question('Workspace path: ');
+    if (selection.type === 'add') {
+      clearScreen();
+      console.log(titleBlock(isVi ? 'Them workspace moi' : 'Add new workspace'));
+      const name = (await rl.question(isVi ? 'Ten workspace: ' : 'Workspace name: ')).trim();
+      const rawPath = (await rl.question(isVi ? 'Duong dan workspace: ' : 'Workspace path: ')).trim();
+      
+      if (!rawPath) {
+        console.log(`${COLORS.red}${isVi ? 'Duong dan khong the de trong.' : 'Path cannot be empty.'}${COLORS.reset}`);
+        await pause(rl);
+        continue;
+      }
+
+      const resolvedPath = path.resolve(rawPath);
+      if (!fs.existsSync(resolvedPath)) {
+        console.log(`\n${COLORS.yellow}${isVi ? 'Canh bao' : 'Warning'}: ${isVi ? 'Duong dan khong ton tai tren dia' : 'Path does not exist on disk'}: "${resolvedPath}"${COLORS.reset}`);
+      }
+
       workspaces.push({
         id: createWorkspaceId(),
-        name: name.trim() || 'Workspace',
-        path: workspacePath.trim()
+        name: name || 'Workspace',
+        path: resolvedPath
       });
       saveWorkspaces(workspaces);
+      console.log(`\n${COLORS.green}${isVi ? 'Da them workspace.' : 'Workspace added.'}${COLORS.reset}`);
+      await pause(rl);
       continue;
     }
 
-    if (answer === 'e') {
-      const indexValue = parseInt(await rl.question('Workspace number to edit: '), 10) - 1;
-      if (Number.isInteger(indexValue) && workspaces[indexValue]) {
-        workspaces[indexValue] = await promptWorkspaceEdit(rl, workspaces[indexValue]);
-        saveWorkspaces(workspaces);
+    if (selection.type === 'workspace' && typeof selection.index === 'number') {
+      const idx = selection.index;
+      const workspace = workspaces[idx];
+      
+      const subOptions = [
+        { label: isVi ? 'Sua workspace' : 'Edit workspace', value: 'edit' },
+        { label: isVi ? 'Xoa workspace' : 'Delete workspace', value: 'delete' },
+        { label: isVi ? '← Quay lai' : '← Back', value: 'back' }
+      ];
+
+      const action = await runSelectionMenu(
+        () => {
+          console.log(titleBlock(isVi ? 'Thao tac workspace' : 'Workspace Actions'));
+          console.log(`${COLORS.gray}${isVi ? 'Workspace dang chon:' : 'Selected Workspace:'}${COLORS.reset} ${COLORS.bold}${workspace.name}${COLORS.reset}`);
+          console.log(`${COLORS.gray}${isVi ? 'Duong dan:' : 'Path:'}${COLORS.reset} ${workspace.path}\n`);
+        },
+        subOptions
+      );
+
+      if (action === 'back') {
+        continue;
       }
-      continue;
-    }
 
-    if (answer === 'd') {
-      const indexValue = parseInt(await rl.question('Workspace number to delete: '), 10) - 1;
-      if (Number.isInteger(indexValue) && workspaces[indexValue]) {
-        workspaces.splice(indexValue, 1);
+      if (action === 'delete') {
+        workspaces.splice(idx, 1);
         saveWorkspaces(workspaces);
+        clearScreen();
+        console.log(titleBlock(isVi ? 'Xoa workspace' : 'Delete workspace'));
+        console.log(`\n${COLORS.green}${isVi ? 'Da xoa workspace.' : 'Workspace deleted.'}${COLORS.reset}`);
+        await pause(rl);
+        continue;
+      }
+
+      if (action === 'edit') {
+        clearScreen();
+        console.log(titleBlock(isVi ? 'Sua workspace' : 'Edit workspace'));
+        const newName = await askWithDefault(rl, isVi ? 'Ten workspace moi' : 'New workspace name', workspace.name);
+        const newPath = await askWithDefault(rl, isVi ? 'Duong dan workspace moi' : 'New workspace path', workspace.path);
+        
+        const resolvedPath = path.resolve(newPath.trim());
+        if (!fs.existsSync(resolvedPath)) {
+          console.log(`\n${COLORS.yellow}${isVi ? 'Canh bao' : 'Warning'}: ${isVi ? 'Duong dan khong ton tai tren dia' : 'Path does not exist on disk'}: "${resolvedPath}"${COLORS.reset}`);
+        }
+
+        workspaces[idx] = {
+          ...workspace,
+          name: newName.trim() || workspace.name,
+          path: resolvedPath
+        };
+        saveWorkspaces(workspaces);
+        console.log(`\n${COLORS.green}${isVi ? 'Da cap nhat workspace.' : 'Workspace updated.'}${COLORS.reset}`);
+        await pause(rl);
+        continue;
       }
     }
   }
-}
-
-async function promptWorkspaceEdit(
-  rl: ReturnType<typeof createInterface>,
-  workspace: Workspace
-): Promise<Workspace> {
-  return {
-    ...workspace,
-    name: await askWithDefault(rl, 'New workspace name', workspace.name),
-    path: await askWithDefault(rl, 'New workspace path', workspace.path)
-  };
 }
 
 async function configureStartup(
   config: AppConfig,
   rl: ReturnType<typeof createInterface>
 ): Promise<AppConfig> {
-  clearScreen();
-  const nextMode = (await askWithDefault(
-    rl,
-    'Startup mode (disabled/background/open-ui)',
-    config.startupMode
-  )) as StartupMode;
-  const normalizedMode = normalizeStartupMode(nextMode);
+  const t = createTranslator(config.language);
+  const options: { label: string; value: StartupMode }[] = [
+    { label: `${t('startup.disabled')} (disabled)`, value: 'disabled' },
+    { label: `${t('startup.background')} (background)`, value: 'background' },
+    { label: `${t('startup.openUi')} (open-ui)`, value: 'open-ui' }
+  ];
+
+  const initialIndex = options.findIndex(opt => opt.value === config.startupMode) !== -1
+    ? options.findIndex(opt => opt.value === config.startupMode)
+    : 0;
+
+  const titleText = config.language === 'vi' ? 'Cau hinh khoi dong' : 'Configure startup';
+
+  const nextMode = await runSelectionMenu(
+    () => {
+      console.log(titleBlock(titleText));
+      console.log(`${COLORS.gray}Current startup mode:${COLORS.reset} ${config.startupMode}\n`);
+    },
+    options,
+    initialIndex
+  );
+
   const entryScriptPath = path.join(process.cwd(), 'dist', 'index.js');
-  const result = applyStartupMode(normalizedMode, entryScriptPath, process.cwd());
-  const nextConfig = { ...config, startupMode: normalizedMode };
+  const result = applyStartupMode(nextMode, entryScriptPath, process.cwd());
+  const nextConfig = { ...config, startupMode: nextMode };
   saveConfigToDisk(nextConfig);
+
+  clearScreen();
+  console.log(titleBlock(titleText));
   console.log(`\n${COLORS.green}${result}${COLORS.reset}`);
   await pause(rl);
   return nextConfig;
@@ -292,8 +519,26 @@ async function switchLanguage(
   config: AppConfig,
   rl: ReturnType<typeof createInterface>
 ): Promise<AppConfig> {
-  const answer = (await askWithDefault(rl, 'Language', config.language)).toLowerCase();
-  const language: AppLanguage = answer === 'vi' ? 'vi' : 'en';
+  const options: { label: string; value: AppLanguage }[] = [
+    { label: 'English (en)', value: 'en' },
+    { label: 'Tiếng Việt (vi)', value: 'vi' }
+  ];
+
+  const initialIndex = options.findIndex(opt => opt.value === config.language) !== -1
+    ? options.findIndex(opt => opt.value === config.language)
+    : 0;
+
+  const titleText = config.language === 'vi' ? 'Chon ngon ngu' : 'Switch language';
+
+  const language = await runSelectionMenu(
+    () => {
+      console.log(titleBlock(titleText));
+      console.log(`${COLORS.gray}Current language:${COLORS.reset} ${config.language}\n`);
+    },
+    options,
+    initialIndex
+  );
+
   const nextConfig = { ...config, language };
   saveConfigToDisk(nextConfig);
   return nextConfig;
@@ -335,12 +580,4 @@ function clearScreen(): void {
 
 async function pause(rl: ReturnType<typeof createInterface>): Promise<void> {
   await rl.question('\nPress Enter to continue...');
-}
-
-function normalizeStartupMode(value: string): StartupMode {
-  if (value === 'background' || value === 'open-ui') {
-    return value;
-  }
-
-  return 'disabled';
 }

@@ -474,8 +474,17 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       return;
     }
 
-    await deps.startSession(ctx.chat.id, workspace.id, preset);
-    await showSessionDetails(ctx);
+    try {
+      await deps.startSession(ctx.chat.id, workspace.id, preset);
+      await showSessionDetails(ctx);
+    } catch (error) {
+      logger.error('Failed to start session', {
+        workspaceId,
+        preset,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      await ctx.reply(`Lỗi khi khởi chạy session / Error starting session: ${error instanceof Error ? error.message : String(error)}`);
+    }
   });
 
   bot.callbackQuery('sessions_list', async (ctx) => {
