@@ -48,17 +48,26 @@ function separator(): string {
   return chalk.gray('  ' + '─'.repeat(44));
 }
 
-async function pause(rl: ReturnType<typeof createInterface>): Promise<void> {
-  await rl.question(`\n${chalk.gray('Nhấn Enter để tiếp tục...')}`);
+async function askQuestion(query: string): Promise<string> {
+  const rl = createInterface({ input, output });
+  try {
+    return await rl.question(query);
+  } finally {
+    rl.close();
+    process.stdin.resume();
+  }
+}
+
+async function pause(): Promise<void> {
+  await askQuestion(`\n${chalk.gray('Nhấn Enter để tiếp tục...')}`);
 }
 
 async function askWithDefault(
-  rl: ReturnType<typeof createInterface>,
   label: string,
   currentValue: string
 ): Promise<string> {
   const prompt = `${chalk.bold(label)}${currentValue ? chalk.gray(` [${currentValue}]`) : ''}: `;
-  const answer = await rl.question(prompt);
+  const answer = await askQuestion(prompt);
   return answer.trim() || currentValue;
 }
 
@@ -167,15 +176,9 @@ export async function launchControlCenter(): Promise<void> {
   const isTTY = process.stdin.isTTY;
   const wasRaw = process.stdin.isRaw;
 
-  let rl: ReturnType<typeof createInterface> | undefined;
-
   try {
     if (getMissingConfigFields(config).length > 0) {
-      const result = await runSetupWizard(config);
-      config = result.config;
-      rl = result.rl;
-    } else {
-      rl = createInterface({ input, output });
+      config = await runSetupWizard(config);
     }
 
     let lastSelection = 0;
@@ -198,29 +201,24 @@ export async function launchControlCenter(): Promise<void> {
         { label: t('menu.exit'), value: 'exit' }
       ];
 
-      rl.pause();
       const choice = await runSelectionMenu(
         () => renderDashboardHeader(config, getRuntimeStatus().snapshot),
         options,
         lastSelection
       );
-      rl.resume();
 
       lastSelection = options.findIndex(opt => opt.value === choice);
       if (lastSelection < 0) lastSelection = 0;
 
       if (choice === 'exit') break;
-      if (choice === 'toggle') { await handleToggleRuntime(config, rl); continue; }
-      if (choice === 'settings') { config = await editConfig(config, rl); continue; }
-      if (choice === 'workspaces') { await manageWorkspaces(rl, config.language); continue; }
-      if (choice === 'startup') { config = await configureStartup(config, rl); continue; }
-      if (choice === 'language') { config = await switchLanguage(config, rl); continue; }
-      if (choice === 'logs') { await showRecentLogs(rl); continue; }
+      if (choice === 'toggle') { await handleToggleRuntime(config); continue; }
+      if (choice === 'settings') { config = await editConfig(config); continue; }
+      if (choice === 'workspaces') { await manageWorkspaces(config.language); continue; }
+      if (choice === 'startup') { config = await configureStartup(config); continue; }
+      if (choice === 'language') { config = await switchLanguage(config); continue; }
+      if (choice === 'logs') { await showRecentLogs(); continue; }
     }
   } finally {
-    if (rl) {
-      try { rl.close(); } catch { /* ignore */ }
-    }
     process.stdout.write('\u001b[?25h');
     if (isTTY) {
       try { process.stdin.setRawMode(wasRaw); } catch { /* ignore */ }
@@ -232,7 +230,7 @@ export async function launchControlCenter(): Promise<void> {
 
 async function runSetupWizard(
   currentConfig: AppConfig
-): Promise<{ config: AppConfig; rl: ReturnType<typeof createInterface> }> {
+): Promise<AppConfig> {
   const language = await runSelectionMenu(
     () => {
       console.log(titleBox('Thiết lập nonstop'));
@@ -246,59 +244,50 @@ async function runSetupWizard(
   );
 
   const t = createTranslator(language);
-  const rl = createInterface({ input, output });
 
-  try {
-    clearScreen();
-    console.log(titleBox(t('wizard.title')));
-    console.log('');
+  clearScreen();
+  console.log(titleBox(t('wizard.title')));
+  console.log('');
 
-    const telegramBotToken = await askWithDefault(rl, t('wizard.token'), currentConfig.telegramBotToken);
-    const adminUsername = await askWithDefault(rl, t('wizard.admin'), currentConfig.adminUsername);
-    const clientName = await askWithDefault(rl, t('wizard.clientName'), currentConfig.clientName);
+  const telegramBotToken = await askWithDefault(t('wizard.token'), currentConfig.telegramBotToken);
+  const adminUsername = await askWithDefault(t('wizard.admin'), currentConfig.adminUsername);
+  const clientName = await askWithDefault(t('wizard.clientName'), currentConfig.clientName);
 
-    rl.pause();
-    const startupMode = await runSelectionMenu(
-      () => {
-        console.log(titleBox(t('wizard.title')));
-        console.log(chalk.gray(`  ${t('wizard.startupMode')}:`));
-      },
-      [
-        { label: `Tắt (disabled)`, value: 'disabled' as StartupMode },
-        { label: `Chạy nền (background)`, value: 'background' as StartupMode },
-        { label: `Mở giao diện (open-ui)`, value: 'open-ui' as StartupMode }
-      ],
-      0
-    );
-    rl.resume();
+  const startupMode = await runSelectionMenu(
+    () => {
+      console.log(titleBox(t('wizard.title')));
+      console.log(chalk.gray(`  ${t('wizard.startupMode')}:`));
+    },
+    [
+      { label: `Tắt (disabled)`, value: 'disabled' as StartupMode },
+      { label: `Chạy nền (background)`, value: 'background' as StartupMode },
+      { label: `Mở giao diện (open-ui)`, value: 'open-ui' as StartupMode }
+    ],
+    0
+  );
 
-    const nextConfig: AppConfig = {
-      ...currentConfig,
-      language,
-      telegramBotToken,
-      adminUsername,
-      telegramUsername: adminUsername,
-      clientName,
-      startupMode
-    };
+  const nextConfig: AppConfig = {
+    ...currentConfig,
+    language,
+    telegramBotToken,
+    adminUsername,
+    telegramUsername: adminUsername,
+    clientName,
+    startupMode
+  };
 
-    saveConfigToDisk(nextConfig);
+  saveConfigToDisk(nextConfig);
 
-    clearScreen();
-    console.log(titleBox(t('wizard.title')));
-    console.log(`\n${chalk.green(t('wizard.complete'))}`);
-    await pause(rl);
+  clearScreen();
+  console.log(titleBox(t('wizard.title')));
+  console.log(`\n${chalk.green(t('wizard.complete'))}`);
+  await pause();
 
-    return { config: nextConfig, rl };
-  } catch (error) {
-    try { rl.close(); } catch { /* ignore */ }
-    throw error;
-  }
+  return nextConfig;
 }
 
 async function handleToggleRuntime(
-  config: AppConfig,
-  rl: ReturnType<typeof createInterface>
+  config: AppConfig
 ): Promise<void> {
   const status = getRuntimeStatus();
   const targetState = !status.running;
@@ -320,16 +309,13 @@ async function handleToggleRuntime(
     }
   } catch (error) {
     console.log(`\n${chalk.red(error instanceof Error ? error.message : String(error))}`);
-    await pause(rl);
+    await pause();
     return;
   }
-
-  // Không pause — quay lại menu ngay để trạng thái cập nhật tức thì
 }
 
 async function editConfig(
-  config: AppConfig,
-  rl: ReturnType<typeof createInterface>
+  config: AppConfig
 ): Promise<AppConfig> {
   clearScreen();
   console.log(titleBox('Sửa cấu hình'));
@@ -337,23 +323,22 @@ async function editConfig(
 
   const nextConfig: AppConfig = {
     ...config,
-    telegramBotToken: await askWithDefault(rl, 'TELEGRAM_BOT_TOKEN', config.telegramBotToken),
-    adminUsername: await askWithDefault(rl, 'ADMIN_USERNAME', config.adminUsername),
-    clientName: await askWithDefault(rl, 'CLIENT_NAME', config.clientName),
-    telegramUsername: await askWithDefault(rl, 'TELEGRAM_USERNAME', config.telegramUsername),
-    codexCmd: await askWithDefault(rl, 'CODEX_CMD', config.codexCmd),
-    antigravityCmd: await askWithDefault(rl, 'ANTIGRAVITY_CMD', config.antigravityCmd)
+    telegramBotToken: await askWithDefault('TELEGRAM_BOT_TOKEN', config.telegramBotToken),
+    adminUsername: await askWithDefault('ADMIN_USERNAME', config.adminUsername),
+    clientName: await askWithDefault('CLIENT_NAME', config.clientName),
+    telegramUsername: await askWithDefault('TELEGRAM_USERNAME', config.telegramUsername),
+    codexCmd: await askWithDefault('CODEX_CMD', config.codexCmd),
+    antigravityCmd: await askWithDefault('ANTIGRAVITY_CMD', config.antigravityCmd)
   };
 
   saveConfigToDisk(nextConfig);
   console.log(`\n${chalk.green('✓ Đã lưu cấu hình.')}`);
   console.log(chalk.gray('Khởi động lại runtime nền nếu đang chạy để áp dụng thay đổi.'));
-  await pause(rl);
+  await pause();
   return nextConfig;
 }
 
 async function manageWorkspaces(
-  rl: ReturnType<typeof createInterface>,
   language: AppLanguage
 ): Promise<void> {
   const isVi = language === 'vi';
@@ -369,7 +354,6 @@ async function manageWorkspaces(
       { label: isVi ? '← Quay lại menu chính' : '← Back', value: { type: 'back' } }
     ];
 
-    rl.pause();
     const selection = await runSelectionMenu(
       () => {
         console.log(titleBox(isVi ? 'Quản lý Workspace' : 'Manage Workspaces'));
@@ -377,7 +361,6 @@ async function manageWorkspaces(
       },
       options
     );
-    rl.resume();
 
     if (selection.type === 'back') return;
 
@@ -385,12 +368,12 @@ async function manageWorkspaces(
       clearScreen();
       console.log(titleBox(isVi ? 'Thêm workspace mới' : 'Add workspace'));
       console.log('');
-      const name = (await rl.question(chalk.bold(isVi ? 'Tên workspace: ' : 'Workspace name: '))).trim();
-      const rawPath = (await rl.question(chalk.bold(isVi ? 'Đường dẫn: ' : 'Path: '))).trim();
+      const name = (await askQuestion(chalk.bold(isVi ? 'Tên workspace: ' : 'Workspace name: '))).trim();
+      const rawPath = (await askQuestion(chalk.bold(isVi ? 'Đường dẫn: ' : 'Path: '))).trim();
 
       if (!rawPath) {
         console.log(chalk.red(isVi ? '  Đường dẫn không được để trống.' : '  Path cannot be empty.'));
-        await pause(rl);
+        await pause();
         continue;
       }
 
@@ -402,7 +385,7 @@ async function manageWorkspaces(
       workspaces.push({ id: createWorkspaceId(), name: name || 'Workspace', path: resolvedPath });
       saveWorkspaces(workspaces);
       console.log(chalk.green(`\n  ✓ ${isVi ? 'Đã thêm workspace.' : 'Workspace added.'}`));
-      await pause(rl);
+      await pause();
       continue;
     }
 
@@ -430,7 +413,7 @@ async function manageWorkspaces(
         saveWorkspaces(workspaces);
         clearScreen();
         console.log(chalk.green(`\n  ✓ ${isVi ? 'Đã xóa workspace.' : 'Workspace deleted.'}`));
-        await pause(rl);
+        await pause();
         continue;
       }
 
@@ -438,8 +421,8 @@ async function manageWorkspaces(
         clearScreen();
         console.log(titleBox(isVi ? 'Sửa workspace' : 'Edit workspace'));
         console.log('');
-        const newName = await askWithDefault(rl, isVi ? 'Tên mới' : 'New name', ws.name);
-        const newPath = await askWithDefault(rl, isVi ? 'Đường dẫn mới' : 'New path', ws.path);
+        const newName = await askWithDefault(isVi ? 'Tên mới' : 'New name', ws.name);
+        const newPath = await askWithDefault(isVi ? 'Đường dẫn mới' : 'New path', ws.path);
         const resolvedPath = path.resolve(newPath.trim());
         if (!fs.existsSync(resolvedPath)) {
           console.log(chalk.yellow(`  ⚠ ${isVi ? 'Đường dẫn không tồn tại.' : 'Path does not exist.'}`));
@@ -447,7 +430,7 @@ async function manageWorkspaces(
         workspaces[idx] = { ...ws, name: newName.trim() || ws.name, path: resolvedPath };
         saveWorkspaces(workspaces);
         console.log(chalk.green(`\n  ✓ ${isVi ? 'Đã cập nhật workspace.' : 'Workspace updated.'}`));
-        await pause(rl);
+        await pause();
         continue;
       }
     }
@@ -455,12 +438,10 @@ async function manageWorkspaces(
 }
 
 async function configureStartup(
-  config: AppConfig,
-  rl: ReturnType<typeof createInterface>
+  config: AppConfig
 ): Promise<AppConfig> {
   const isVi = config.language === 'vi';
 
-  rl.pause();
   const nextMode = await runSelectionMenu(
     () => {
       console.log(titleBox(isVi ? 'Cấu hình khởi động' : 'Configure startup'));
@@ -473,7 +454,6 @@ async function configureStartup(
     ],
     ['disabled', 'background', 'open-ui'].indexOf(config.startupMode)
   );
-  rl.resume();
 
   const entryScriptPath = path.join(process.cwd(), 'dist', 'index.js');
   const result = applyStartupMode(nextMode, entryScriptPath, process.cwd());
@@ -483,15 +463,13 @@ async function configureStartup(
   clearScreen();
   console.log(titleBox(isVi ? 'Cấu hình khởi động' : 'Configure startup'));
   console.log(`\n${chalk.green(result)}`);
-  await pause(rl);
+  await pause();
   return nextConfig;
 }
 
 async function switchLanguage(
-  config: AppConfig,
-  rl: ReturnType<typeof createInterface>
+  config: AppConfig
 ): Promise<AppConfig> {
-  rl.pause();
   const language = await runSelectionMenu(
     () => {
       console.log(titleBox('Đổi ngôn ngữ / Switch language'));
@@ -503,24 +481,23 @@ async function switchLanguage(
     ],
     config.language === 'en' ? 1 : 0
   );
-  rl.resume();
 
   const nextConfig = { ...config, language };
   saveConfigToDisk(nextConfig);
   return nextConfig;
 }
 
-async function showRecentLogs(rl: ReturnType<typeof createInterface>): Promise<void> {
+async function showRecentLogs(): Promise<void> {
   clearScreen();
   console.log(titleBox('Nhật ký gần đây'));
   const logPath = path.join(process.cwd(), 'data', 'nonstop.log');
   if (!fs.existsSync(logPath)) {
     console.log(chalk.gray('\n  Chưa có nhật ký.'));
-    await pause(rl);
+    await pause();
     return;
   }
 
   const lines = fs.readFileSync(logPath, 'utf8').split(/\r?\n/).filter(Boolean).slice(-25);
   console.log('\n' + lines.map(l => chalk.gray('  ') + l).join('\n'));
-  await pause(rl);
+  await pause();
 }

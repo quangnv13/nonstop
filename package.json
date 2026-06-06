@@ -1,6 +1,6 @@
 {
   "name": "@quangnv13/nonstop",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "preferGlobal": true,
   "publishConfig": {
     "access": "public"
