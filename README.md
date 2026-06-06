@@ -37,7 +37,7 @@
 * **🤖 Telegram PTY Terminal** — Execute and control real-time, interactive shell sessions (PowerShell, Bash, Codex, or Antigravity) remotely from Telegram.
 * **⚙️ Inline Configuration Engine** — Modify environment settings dynamically through the new `/config` inline Telegram menu or directly in the CLI.
 * **📂 Smart Workspaces** — Navigate and switch between different working directories on your machine with a few taps.
-* **🔄 Optimized Output Stream** — Advanced batch-delivery mechanics with configurable output intervals, ensuring fluid terminal logs inside Telegram without hitting API limits.
+* **🔄 Optimized Output Stream** — Advanced batch-delivery mechanics with configurable output intervals (`OUTPUT_INTERVAL`) and interaction-triggered flush delays (`ACTION_INTERVAL`), ensuring fluid terminal logs inside Telegram without hitting API limits.
 * **🚀 Native OS Autostart** — Easy configuration to run as a background service on OS startup (supports Windows and Linux).
 * **🌐 Bilingual Support** — Fully localized in English (`en`) and Vietnamese (`vi`).
 * **🛡️ Hardened Security** — Hardened token validation and authorization checks, restricting control access strictly to the configured admin account.
@@ -126,6 +126,9 @@ Once the bot runtime is active, you can interact with it via the following Teleg
    * **⛔ Esc** — Send the Escape key to interrupt/cancel processes.
    * **⏎ Enter** — Send a carriage return.
    * **▲ Up / ▼ Down** — Navigate command history.
+   * **🔄 Refresh** — Request an update of the terminal screen.
+   > [!NOTE]
+   > Pressing control keys (**Esc**, **Enter**, **Up**, **Down**) or clicking **Refresh** will trigger a quick output delivery after a short interactive delay (configured via `ACTION_INTERVAL`, default 5s) and bypass standard duplicate output filters to guarantee updates are delivered.
 
 #### **📂 Directory Workspaces**
 * Select **📁 Workspaces** from the main menu to view configured folders.
@@ -149,6 +152,8 @@ TELEGRAM_USERNAME=@your_telegram_username
 CLIENT_NAME=nonstop-local
 APP_LANGUAGE=en
 STARTUP_MODE=disabled
+OUTPUT_INTERVAL=20000
+ACTION_INTERVAL=5000
 ```
 
 ---

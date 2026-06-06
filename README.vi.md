@@ -37,7 +37,7 @@
 * **🤖 Terminal PTY Qua Telegram** — Thực thi và điều khiển các phiên shell tương tác thời gian thực (PowerShell, Bash, Codex hoặc Antigravity) từ xa thông qua Telegram.
 * **⚙️ Trình Cấu Hình Động Trực Tiếp** — Thay đổi các tham số môi trường động thông qua menu `/config` bằng các phím inline Telegram hoặc trực tiếp trên CLI.
 * **📂 Quản Lý Workspace Linh Hoạt** — Điều hướng và chuyển đổi nhanh chóng giữa các thư mục làm việc khác nhau trên máy chủ cục bộ.
-* **🔄 Luồng Đầu Ra Được Tối Ưu Hóa** — Cơ chế gom cụm dữ liệu đầu ra thông minh với khoảng giãn cách (intervals) cấu hình được, giúp đảm bảo nhật ký terminal hiển thị mượt mà mà không vượt quá giới hạn API Telegram.
+* **🔄 Luồng Đầu Ra Được Tối Ưu Hóa** — Cơ chế gom cụm đầu ra thông minh với khoảng giãn cách cấu hình được (`OUTPUT_INTERVAL`) và độ trễ flush kích hoạt bởi tương tác (`ACTION_INTERVAL`), giúp nhật ký terminal hiển thị mượt mà trên Telegram mà không vượt quá giới hạn API.
 * **🚀 Khởi Động Cùng Hệ Điều Hành** — Dễ dàng cấu hình để chạy như một dịch vụ nền khi hệ thống khởi động (hỗ trợ Windows và Linux).
 * **🌐 Hỗ Trợ Đa Ngôn Ngữ** — Bản dịch hoàn chỉnh cho tiếng Anh (`en`) và tiếng Việt (`vi`).
 * **🛡️ Bảo Mật Nghiêm Ngặt** — Xác thực token và kiểm tra quyền hạn chặt chẽ, chỉ cho phép tài khoản Admin đã cấu hình điều khiển hệ thống.
@@ -126,6 +126,9 @@ Khi bot đang hoạt động, bạn có thể tương tác với nó thông qua 
    * **⛔ Esc** — Gửi phím Escape để hủy lệnh/tiến trình đang chạy.
    * **⏎ Enter** — Gửi phím xuống dòng (chấp nhận lệnh).
    * **▲ Up / ▼ Down** — Duyệt lại lịch sử các lệnh đã gõ.
+   * **🔄 Tải lại** — Yêu cầu cập nhật màn hình terminal ngay lập tức.
+   > [!NOTE]
+   > Việc nhấn các phím chức năng (**Esc**, **Enter**, **Up**, **Down**) hoặc nút **Tải lại** sẽ kích hoạt gửi kết quả terminal sau một khoảng trễ ngắn (cấu hình qua `ACTION_INTERVAL`, mặc định là 5 giây) và bỏ qua bộ lọc tin nhắn trùng lặp để đảm bảo bạn thấy kết quả mới nhất.
 
 #### **📂 Thư Mục Làm Việc (Workspaces)**
 * Chọn **📁 Workspaces** từ menu chính để xem danh sách các thư mục được cấu hình.
@@ -149,6 +152,8 @@ TELEGRAM_USERNAME=@your_telegram_username
 CLIENT_NAME=nonstop-local
 APP_LANGUAGE=en
 STARTUP_MODE=disabled
+OUTPUT_INTERVAL=20000
+ACTION_INTERVAL=5000
 ```
 
 ---
