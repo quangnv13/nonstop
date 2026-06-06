@@ -39,8 +39,10 @@
 * **📂 Smart Workspaces** — Navigate and switch between different working directories on your machine with a few taps.
 * **🔄 Optimized Output Stream** — Advanced batch-delivery mechanics with configurable output intervals (`OUTPUT_INTERVAL`) and interaction-triggered flush delays (`ACTION_INTERVAL`), ensuring fluid terminal logs inside Telegram without hitting API limits.
 * **🚀 Native OS Autostart** — Easy configuration to run as a background service on OS startup (supports Windows and Linux).
+* **⚠️ Dangerous Command Protection** — Intercepts and prompts for confirmation (via Telegram inline buttons) before executing commands matching a customizable comma-separated list of dangerous patterns, preventing accidental system damage.
 * **🌐 Bilingual Support** — Fully localized in English (`en`) and Vietnamese (`vi`).
 * **🛡️ Hardened Security** — Hardened token validation and authorization checks, restricting control access strictly to the configured admin account.
+
 
 ---
 
@@ -154,6 +156,7 @@ APP_LANGUAGE=en
 STARTUP_MODE=disabled
 OUTPUT_INTERVAL=20000
 ACTION_INTERVAL=5000
+DANGEROUS_COMMAND_CONFIRM=rm -rf /,rm -rf,rm -fr,sudo,del /s,rd /s,rmdir /s,format,shutdown,reboot,poweroff,init 0,dd if=,mkfs,fdisk
 ```
 
 ---

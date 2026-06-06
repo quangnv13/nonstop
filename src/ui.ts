@@ -551,7 +551,8 @@ async function editConfig(
     clientName: await askWithDefault('CLIENT_NAME', config.clientName),
     telegramUsername: await askWithDefault('TELEGRAM_USERNAME', config.telegramUsername),
     codexCmd: await askWithDefault('CODEX_CMD', config.codexCmd),
-    antigravityCmd: await askWithDefault('ANTIGRAVITY_CMD', config.antigravityCmd)
+    antigravityCmd: await askWithDefault('ANTIGRAVITY_CMD', config.antigravityCmd),
+    dangerousCommandConfirm: await askWithDefault('DANGEROUS_COMMAND_CONFIRM', config.dangerousCommandConfirm)
   };
 
   saveConfigToDisk(nextConfig);

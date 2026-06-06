@@ -94,6 +94,10 @@ type TranslationKey =
   | 'bot.general.sendUsage'
   | 'bot.general.noActiveSession'
   | 'bot.general.sentCommand'
+  | 'bot.general.dangerousConfirm'
+  | 'bot.general.confirmYes'
+  | 'bot.general.confirmNo'
+  | 'bot.general.confirmCancelled'
   | 'bot.general.defaultMessage';
 
 const MESSAGES: Record<AppLanguage, Record<TranslationKey, string>> = {
@@ -191,6 +195,10 @@ const MESSAGES: Record<AppLanguage, Record<TranslationKey, string>> = {
     'bot.general.sendUsage': 'Usage: /send <command to send>',
     'bot.general.noActiveSession': 'No active session running.',
     'bot.general.sentCommand': '✓ Command sent',
+    'bot.general.dangerousConfirm': '⚠️ This command may be dangerous and cannot be undone: "{command}". Are you sure you want to execute it?',
+    'bot.general.confirmYes': 'Yes, execute',
+    'bot.general.confirmNo': 'Cancel',
+    'bot.general.confirmCancelled': 'Command execution cancelled.',
     'bot.general.defaultMessage': 'Use /start to open the menu.'
   },
   vi: {
@@ -287,6 +295,10 @@ const MESSAGES: Record<AppLanguage, Record<TranslationKey, string>> = {
     'bot.general.sendUsage': 'Cách dùng: /send <lệnh cần gửi>',
     'bot.general.noActiveSession': 'Không có phiên làm việc đang chạy.',
     'bot.general.sentCommand': '✓ Đã gửi lệnh',
+    'bot.general.dangerousConfirm': '⚠️ Lệnh này có thể nguy hiểm và không thể hoàn tác: "{command}". Bạn có chắc chắn muốn thực hiện không?',
+    'bot.general.confirmYes': 'Đồng ý, chạy lệnh',
+    'bot.general.confirmNo': 'Hủy',
+    'bot.general.confirmCancelled': 'Đã hủy thực hiện lệnh.',
     'bot.general.defaultMessage': 'Dùng /start để mở menu.'
   }
 };

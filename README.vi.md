@@ -39,8 +39,10 @@
 * **📂 Quản Lý Workspace Linh Hoạt** — Điều hướng và chuyển đổi nhanh chóng giữa các thư mục làm việc khác nhau trên máy chủ cục bộ.
 * **🔄 Luồng Đầu Ra Được Tối Ưu Hóa** — Cơ chế gom cụm đầu ra thông minh với khoảng giãn cách cấu hình được (`OUTPUT_INTERVAL`) và độ trễ flush kích hoạt bởi tương tác (`ACTION_INTERVAL`), giúp nhật ký terminal hiển thị mượt mà trên Telegram mà không vượt quá giới hạn API.
 * **🚀 Khởi Động Cùng Hệ Điều Hành** — Dễ dàng cấu hình để chạy như một dịch vụ nền khi hệ thống khởi động (hỗ trợ Windows và Linux).
+* **⚠️ Bảo Vệ Lệnh Nguy Hiểm** — Tự động chặn và yêu cầu xác thực (thông qua nút bấm inline Telegram) trước khi thực thi các lệnh khớp với danh sách cấu hình, giúp hạn chế rủi ro phá hoại hệ thống ngoài ý muốn.
 * **🌐 Hỗ Trợ Đa Ngôn Ngữ** — Bản dịch hoàn chỉnh cho tiếng Anh (`en`) và tiếng Việt (`vi`).
 * **🛡️ Bảo Mật Nghiêm Ngặt** — Xác thực token và kiểm tra quyền hạn chặt chẽ, chỉ cho phép tài khoản Admin đã cấu hình điều khiển hệ thống.
+
 
 ---
 
@@ -154,6 +156,7 @@ APP_LANGUAGE=en
 STARTUP_MODE=disabled
 OUTPUT_INTERVAL=20000
 ACTION_INTERVAL=5000
+DANGEROUS_COMMAND_CONFIRM=rm -rf /,rm -rf,rm -fr,sudo,del /s,rd /s,rmdir /s,format,shutdown,reboot,poweroff,init 0,dd if=,mkfs,fdisk
 ```
 
 ---

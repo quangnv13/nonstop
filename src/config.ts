@@ -19,6 +19,7 @@ export interface AppConfig {
   antigravityCmd: string;
   antigravityArgs: string;
   actionInterval: number;
+  dangerousCommandConfirm: string;
 }
 
 export type ConfigFieldKey =
@@ -27,7 +28,8 @@ export type ConfigFieldKey =
   | 'clientName'
   | 'telegramUsername'
   | 'language'
-  | 'startupMode';
+  | 'startupMode'
+  | 'dangerousCommandConfirm';
 
 const DEFAULTS: AppConfig = {
   telegramBotToken: '',
@@ -43,7 +45,8 @@ const DEFAULTS: AppConfig = {
   codexCmd: 'codex',
   codexArgs: '[]',
   antigravityCmd: 'agy',
-  antigravityArgs: '[]'
+  antigravityArgs: '[]',
+  dangerousCommandConfirm: 'rm -rf /,rm -rf,rm -fr,sudo,del /s,rd /s,rmdir /s,format,shutdown,reboot,poweroff,init 0,dd if=,mkfs,fdisk'
 };
 
 export const ENV_FILE_PATH = path.join(process.cwd(), '.env');
@@ -64,7 +67,8 @@ export function parseConfigFromEnv(env: Record<string, string | undefined>): App
     codexArgs: env.CODEX_ARGS?.trim() || DEFAULTS.codexArgs,
     antigravityCmd: env.ANTIGRAVITY_CMD?.trim() || DEFAULTS.antigravityCmd,
     antigravityArgs: env.ANTIGRAVITY_ARGS?.trim() || DEFAULTS.antigravityArgs,
-    actionInterval: parseInteger(env.ACTION_INTERVAL, DEFAULTS.actionInterval)
+    actionInterval: parseInteger(env.ACTION_INTERVAL, DEFAULTS.actionInterval),
+    dangerousCommandConfirm: env.DANGEROUS_COMMAND_CONFIRM !== undefined ? env.DANGEROUS_COMMAND_CONFIRM.trim() : DEFAULTS.dangerousCommandConfirm
   };
 }
 
@@ -94,6 +98,7 @@ export function serializeConfigToEnv(config: AppConfig): string {
     `ACTION_INTERVAL=${config.actionInterval}`,
     `MAX_OUTPUT_LINES=${config.maxOutputLines}`,
     `MAX_RENDER_LINES=${config.maxRenderLines}`,
+    `DANGEROUS_COMMAND_CONFIRM=${config.dangerousCommandConfirm}`,
     '',
     '# CLI OVERRIDES (Optional)',
     `CODEX_CMD=${config.codexCmd}`,
@@ -158,6 +163,7 @@ export function applyConfigToProcessEnv(config: AppConfig): void {
   process.env.CODEX_ARGS = config.codexArgs;
   process.env.ANTIGRAVITY_CMD = config.antigravityCmd;
   process.env.ANTIGRAVITY_ARGS = config.antigravityArgs;
+  process.env.DANGEROUS_COMMAND_CONFIRM = config.dangerousCommandConfirm;
 }
 
 function normalizeUsername(value: string): string {

@@ -69,6 +69,7 @@ export interface BotRuntime {
 interface ChatState {
   workspaceDraft: WorkspaceDraft | null;
   configFieldDraft: { field: keyof AppConfig } | null;
+  pendingDangerousCommand?: string;
 }
 
 const SUPPORTED_PRESETS: SessionPreset[] = ['powershell', 'bash', 'codex', 'antigravity'];
@@ -233,7 +234,8 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       `• Codex Cmd: ${config.codexCmd}`,
       `• Codex Args: ${config.codexArgs}`,
       `• Antigravity Cmd: ${config.antigravityCmd}`,
-      `• Antigravity Args: ${config.antigravityArgs}`
+      `• Antigravity Args: ${config.antigravityArgs}`,
+      `• Dangerous Cmds: ${config.dangerousCommandConfirm || notConfigured}`
     ];
 
     const keyboard = createKeyboard()
@@ -256,6 +258,8 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       .text('Antigravity Cmd', 'config_edit:antigravityCmd')
       .row()
       .text('Antigravity Args', 'config_edit:antigravityArgs')
+      .row()
+      .text('Dangerous Cmds', 'config_edit:dangerousCommandConfirm')
       .row()
       .text(t('bot.general.back'), 'main_menu');
 
@@ -521,7 +525,27 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       await ctx.reply(t('bot.general.noActiveSession'));
       return;
     }
-    deps.sendInput(session.autoEnter ? `${payload}\r` : payload);
+    const finalInput = session.autoEnter ? `${payload}\r` : payload;
+    const config = deps.getConfig();
+    const dangerousCmdsList = (config.dangerousCommandConfirm || '')
+      .split(',')
+      .map(c => c.trim().toLowerCase())
+      .filter(Boolean);
+    const isDangerous = dangerousCmdsList.some(dangerous => payload.toLowerCase().includes(dangerous));
+
+    if (isDangerous) {
+      const chatId = ctx.chat?.id;
+      if (chatId) {
+        getChatState(chatId).pendingDangerousCommand = finalInput;
+        const keyboard = createKeyboard()
+          .text(t('bot.general.confirmYes'), 'confirm_dangerous_yes')
+          .text(t('bot.general.confirmNo'), 'confirm_dangerous_no');
+        await ctx.reply(t('bot.general.dangerousConfirm', { command: payload }), { reply_markup: keyboard });
+        return;
+      }
+    }
+
+    deps.sendInput(finalInput);
     await ctx.reply(t('bot.general.sentCommand'));
   });
 
@@ -538,12 +562,77 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     const session = deps.getActiveSession();
     if (session?.status === 'running' && session.inputMode) {
       const payload = session.autoEnter ? `${text}\r` : text;
+      
+      const config = deps.getConfig();
+      const dangerousCmdsList = (config.dangerousCommandConfirm || '')
+        .split(',')
+        .map(c => c.trim().toLowerCase())
+        .filter(Boolean);
+      const isDangerous = dangerousCmdsList.some(dangerous => text.toLowerCase().includes(dangerous));
+
+      if (isDangerous) {
+        const chatId = ctx.chat?.id;
+        if (chatId) {
+          getChatState(chatId).pendingDangerousCommand = payload;
+          const keyboard = createKeyboard()
+            .text(t('bot.general.confirmYes'), 'confirm_dangerous_yes')
+            .text(t('bot.general.confirmNo'), 'confirm_dangerous_no');
+          await ctx.reply(t('bot.general.dangerousConfirm', { command: text }), { reply_markup: keyboard });
+          return;
+        }
+      }
+
       deps.sendInput(payload);
       await ctx.reply(t('bot.general.sentCommand'));
       return;
     }
 
     await ctx.reply(t('bot.general.defaultMessage'));
+  });
+
+  bot.callbackQuery('confirm_dangerous_yes', async (ctx) => {
+    await safeAnswerCallback(ctx);
+    const chatId = ctx.chat?.id;
+    const t = getT();
+    if (!chatId) return;
+
+    const state = getChatState(chatId);
+    const command = state.pendingDangerousCommand;
+    state.pendingDangerousCommand = undefined;
+
+    if (!command) {
+      await ctx.reply(t('bot.general.defaultMessage'));
+      return;
+    }
+
+    const session = deps.getActiveSession();
+    if (!session || session.status !== 'running') {
+      await ctx.reply(t('bot.general.noActiveSession'));
+      return;
+    }
+
+    deps.sendInput(command);
+    try {
+      await ctx.editMessageText(t('bot.general.sentCommand'));
+    } catch {
+      await ctx.reply(t('bot.general.sentCommand'));
+    }
+  });
+
+  bot.callbackQuery('confirm_dangerous_no', async (ctx) => {
+    await safeAnswerCallback(ctx);
+    const chatId = ctx.chat?.id;
+    const t = getT();
+    if (!chatId) return;
+
+    const state = getChatState(chatId);
+    state.pendingDangerousCommand = undefined;
+
+    try {
+      await ctx.editMessageText(t('bot.general.confirmCancelled'));
+    } catch {
+      await ctx.reply(t('bot.general.confirmCancelled'));
+    }
   });
 
   bot.callbackQuery('main_menu', async (ctx) => {
