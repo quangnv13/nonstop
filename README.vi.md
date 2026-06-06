@@ -14,6 +14,23 @@
 
 ---
 
+## 📖 Mục Lục
+
+* [🌟 Tính Năng Nổi Bật](#-tính-năng-nổi-bật)
+* [⚙️ Kiến Trúc & Luồng Dữ Liệu](#️-kiến-trúc--luồng-dữ-liệu)
+* [🚀 Hướng Dẫn Nhanh](#-hướng-dẫn-nhanh)
+  * [1. Cài Đặt](#1-cài-đặt)
+  * [2. Tạo Bot Telegram](#2-tạo-bot-telegram)
+  * [3. Khởi Chạy và Thiết Lập](#3-khởi-chạy-và-thiết-lập)
+* [🕹️ Hướng Dẫn Sử Dụng](#️-hướng-dẫn-sử-dụng)
+  * [1. Trung Tâm Điều Khiển TUI Cục Bộ](#1-trung-tâm-điều-khển-tui-cục-bộ)
+  * [2. Tương Tác Qua Telegram Bot](#2-tương-tác-qua-telegram-bot)
+* [🎛️ Cấu Hình Ban Đầu](#️-cấu-hình-ban-đầu)
+* [🛡️ Khuyến Nghị Bảo Mật](#️-khuyến-nghị-bảo-mật)
+* [📄 Bản Quyền](#-bản-quyền)
+
+---
+
 ## 🌟 Tính Năng Nổi Bật
 
 * **💻 Trung Tâm Điều Khiển TUI Trực Quan** — Quản lý các tiến trình runtime, kiểm tra nhật ký (logs), đăng ký thư mục làm việc và sửa đổi cấu hình trực tiếp từ giao diện terminal.
@@ -45,10 +62,43 @@ graph TD
 
 ---
 
+## 🚀 Hướng Dẫn Nhanh
+
+### 1. Cài Đặt
+Cài đặt package toàn cục (globally) bằng npm:
+```bash
+npm install -g @quangnv13/nonstop
+```
+
+### 2. Tạo Bot Telegram
+Để chạy `nonstop`, bạn cần chuẩn bị một token của bot Telegram. Dưới đây là hướng dẫn tạo bot qua `@BotFather`:
+
+1. Mở ứng dụng Telegram, tìm kiếm **@BotFather** (chú ý chọn tài khoản có dấu tích xanh xác thực).
+2. Nhấn **Start** (hoặc gửi lệnh `/start`).
+3. Gửi lệnh `/newbot` để bắt đầu quy trình tạo bot mới.
+4. Nhập tên hiển thị cho bot của bạn (ví dụ: `My Nonstop Controller`).
+5. Nhập tên người dùng (username) duy nhất cho bot, tên này bắt buộc phải kết thúc bằng chữ `bot` (ví dụ: `my_nonstop_bot`).
+6. Sau khi hoàn thành, `@BotFather` sẽ gửi lại cho bạn một mã **HTTP API Access Token** (dạng như: `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`). Copy lại mã token này và giữ bí mật.
+
+### 3. Khởi Chạy và Thiết Lập
+Di chuyển tới thư mục bạn muốn lưu cấu hình nonstop và chạy lệnh:
+```bash
+nonstop
+```
+> [!NOTE]
+> Trong lần chạy đầu tiên, nếu tệp `.env` chưa tồn tại trong thư mục, `nonstop` sẽ tự động hiển thị **Trình hướng dẫn thiết lập (Setup Wizard)** trực tiếp trên terminal của bạn để giúp bạn điền:
+> * **Telegram Bot Token**: Token bạn vừa lấy từ BotFather.
+> * **Allowed Admin Username**: Tên người dùng Telegram của bạn (bắt đầu bằng `@`) để ngăn chặn các truy cập trái phép.
+> * **Client Name**: Tên định danh cho server này.
+> * **Language**: Chọn ngôn ngữ hiển thị (tiếng Anh `en` hoặc tiếng Việt `vi`).
+> * **Startup Mode**: Cấu hình tự khởi động cùng hệ điều hành.
+
+---
+
 ## 🕹️ Hướng Dẫn Sử Dụng
 
 ### 1. Trung Tâm Điều Khiển TUI Cục Bộ
-Chạy lệnh `npm start` (hoặc `npm run dev`) để mở giao diện quản lý trên terminal của bạn. Tại đây, bạn có thể:
+Chỉ cần chạy lệnh `nonstop` trên terminal của bạn để mở giao diện bảng điều khiển. Từ đây bạn có thể:
 * **Khởi động / Dừng (Start / Stop)** bot chạy ẩn.
 * **Cấu hình Workspace**: Quản lý các thư mục mà phiên terminal được phép khởi chạy từ đó.
 * **Tự động khởi động (Autostart)**: Thiết lập ứng dụng tự chạy khi hệ thống khởi động.
@@ -75,7 +125,7 @@ Khi bot đang hoạt động, bạn có thể tương tác với nó thông qua 
    * **▲ Up / ▼ Down** — Duyệt lại lịch sử các lệnh đã gõ.
 
 #### **📂 Thư Mục Làm Việc (Workspaces)**
-* Chọn **📁 Workspaces** từ menu chính để xem danh sách các thư mục được cấu hình trong `data/workspaces.json`.
+* Chọn **📁 Workspaces** từ menu chính để xem danh sách các thư mục được cấu hình.
 * Việc chọn một workspace sẽ đổi thư mục hiện tại của phiên PTY tiếp theo sang thư mục đó.
 
 #### **⚙️ Cấu Hình Hệ Thống Động**
@@ -85,61 +135,9 @@ Khi bot đang hoạt động, bạn có thể tương tác với nó thông qua 
 
 ---
 
-## 🛠️ Hướng Dẫn Cài Đặt
-
-### 1. Yêu Cầu Hệ Thống
-Hãy chắc chắn rằng máy tính của bạn đã cài đặt [Node.js](https://nodejs.org/) (v18+) và `npm`.
-
-### 2. Cài Đặt
-Tải mã nguồn và cài đặt các thư viện cần thiết:
-```bash
-git clone https://github.com/quangnv13/nonstop.git
-cd nonstop
-npm install
-```
-
-### 3. Biên Dịch Dự Án
-Biên dịch các tệp TypeScript sang mã JavaScript chạy chính thức:
-```bash
-npm run build
-```
-
-### 4. Khởi Chạy `nonstop`
-Khởi động giao diện trung tâm điều khiển TUI:
-```bash
-npm start
-```
-> [!NOTE]
-> Trong lần chạy đầu tiên, nếu tệp `.env` chưa tồn tại, `nonstop` sẽ tự động hiển thị **Trình hướng dẫn thiết lập (Setup Wizard)** để giúp bạn điền Token Telegram, tên người dùng Admin được phép truy cập, ngôn ngữ và cấu hình khởi động.
-
-Với chế độ phát triển (hỗ trợ hot-reload):
-```bash
-npm run dev
-```
-
----
-
-## 📁 Cấu Trúc Dự Án
-
-```text
-nonstop/
-├── data/               # Lưu trữ dữ liệu (logs, workspaces.json, last-chat-id)
-├── src/                # Mã nguồn viết bằng TypeScript
-│   ├── bot.ts          # Xử lý bot Telegram & các callback query
-│   ├── config.ts       # Phân tích cấu hình, ghi tệp cấu hình & nạp biến môi trường
-│   ├── runtime.ts      # Quản lý shell session & tiến trình PTY
-│   ├── ui.ts           # Giao diện trung tâm điều khiển TUI
-│   └── index.ts        # Điểm khởi chạy ứng dụng
-├── dist/               # Mã JavaScript sau khi biên dịch
-├── .env                # Lưu trữ cấu hình môi trường cục bộ (được bỏ qua bởi git)
-└── package.json        # Định nghĩa dự án & các script chạy lệnh
-```
-
----
-
 ## 🎛️ Cấu Hình Ban Đầu
 
-Các cài đặt cấu hình nằm trong file `.env` tại thư mục gốc của dự án. Bạn có thể tạo từ tệp mẫu [`.env.example`](.env.example):
+Các cài đặt cấu hình nằm trong file `.env` tại thư mục nơi bạn chạy lệnh CLI. Tệp mẫu cấu hình `.env.example` sẽ được tự động sinh ra:
 
 ```ini
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
@@ -150,18 +148,6 @@ APP_LANGUAGE=en
 STARTUP_MODE=disabled
 ```
 
-### 🤖 Hướng Dẫn Tạo Bot Telegram
-Để khởi chạy `nonstop`, bạn cần chuẩn bị một token của bot Telegram. Dưới đây là hướng dẫn tạo bot qua `@BotFather`:
-
-1. Mở ứng dụng Telegram, tìm kiếm **@BotFather** (chú ý chọn tài khoản có dấu tích xanh xác thực).
-2. Nhấn **Start** (hoặc gửi lệnh `/start`).
-3. Gửi lệnh `/newbot` để bắt đầu quy trình tạo bot mới.
-4. Nhập tên hiển thị cho bot của bạn (ví dụ: `My Nonstop Controller`).
-5. Nhập tên người dùng (username) duy nhất cho bot, tên này bắt buộc phải kết thúc bằng chữ `bot` (ví dụ: `my_nonstop_bot`).
-6. Sau khi hoàn thành, `@BotFather` sẽ gửi lại cho bạn một mã **HTTP API Access Token** (dạng như: `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`).
-7. Hãy bảo mật mã token này! Copy token này và dán vào file `.env` ở trường `TELEGRAM_BOT_TOKEN`, hoặc điền trực tiếp vào Trình hướng dẫn thiết lập (Setup Wizard) khi khởi chạy `nonstop` lần đầu tiên.
-
-
 ---
 
 ## 🛡️ Khuyến Nghị Bảo Mật
@@ -169,7 +155,7 @@ STARTUP_MODE=disabled
 > [!WARNING]
 > Do `nonstop` cung cấp quyền truy cập shell trực tiếp trên máy của bạn thông qua ứng dụng Telegram, hãy lưu ý các quy tắc bảo mật sau:
 >
-> 1. **Giữ Bí Mật Token Bot**: Tuyệt đối không commit tệp `.env` chứa token lên các kho lưu trữ công cộng.
+> 1. **Giữ Bí Mật Token Bot**: Tuyệt đối không để lộ tệp `.env` chứa token lên các kho lưu trữ công cộng.
 > 2. **Kiểm Tra Kỹ Tên Admin**: Đảm bảo `ADMIN_USERNAME` được điền đúng (bao gồm cả ký tự `@` ở đầu) để tránh kẻ xấu lợi dụng.
 > 3. **Chạy Với Quyền Hạn Hạn Chế**: Không nên chạy ứng dụng dưới các quyền quản trị cao nhất (như Administrator hoặc root) trừ khi thực sự cần thiết.
 

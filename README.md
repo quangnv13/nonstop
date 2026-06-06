@@ -14,6 +14,23 @@
 
 ---
 
+## 📖 Table of Contents
+
+* [🌟 Key Features](#-key-features)
+* [⚙️ Architecture & Data Flow](#️-architecture--data-flow)
+* [🚀 Quick Start](#-quick-start)
+  * [1. Installation](#1-installation)
+  * [2. Creating a Telegram Bot](#2-creating-a-telegram-bot)
+  * [3. Run and Setup](#3-run-and-setup)
+* [🕹️ Usage Guide](#️-usage-guide)
+  * [1. Local TUI Control Center](#1-local-tui-control-center)
+  * [2. Telegram Bot Interaction](#2-telegram-bot-interaction)
+* [🎛️ Configuration](#️-configuration)
+* [🛡️ Security Best Practices](#️-security-best-practices)
+* [📄 License](#-license)
+
+---
+
 ## 🌟 Key Features
 
 * **💻 Immersive TUI Control Center** — Manage runtime processes, inspect logs, register workspaces, and edit configuration directly from a command-line interface.
@@ -45,10 +62,43 @@ graph TD
 
 ---
 
+## 🚀 Quick Start
+
+### 1. Installation
+Install the package globally using npm:
+```bash
+npm install -g @quangnv13/nonstop
+```
+
+### 2. Creating a Telegram Bot
+To run `nonstop`, you must obtain a Telegram Bot token. Here is how to create one using `@BotFather`:
+
+1. Open Telegram and search for **@BotFather** (ensure it has the verified blue checkmark).
+2. Start a chat and click **Start** (or send the `/start` command).
+3. Send the `/newbot` command to initiate the bot creation process.
+4. Choose a friendly name for your bot (e.g., `My Nonstop Controller`).
+5. Choose a unique username for your bot, which must end in `bot` (e.g., `my_nonstop_bot`).
+6. Once created, `@BotFather` will reply with your **HTTP API Access Token** (e.g., `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`). Copy this token. Keep it private!
+
+### 3. Run and Setup
+Navigate to the directory where you want to store your configuration and run:
+```bash
+nonstop
+```
+> [!NOTE]
+> On the first launch, if your `.env` configuration file is missing, `nonstop` will automatically trigger a **Setup Wizard** in your terminal to configure:
+> * **Telegram Bot Token**: The token you copied from BotFather.
+> * **Allowed Admin Username**: Your Telegram username (starting with `@`) to prevent unauthorized access.
+> * **Client Name**: A name to identify this server.
+> * **Language**: Choose between English (`en`) and Vietnamese (`vi`).
+> * **Startup Mode**: Choose whether it runs on system boot.
+
+---
+
 ## 🕹️ Usage Guide
 
 ### 1. Local TUI Control Center
-Run `npm start` (or `npm run dev`) to open the terminal management dashboard. From here, you can:
+Simply run `nonstop` in your terminal to open the management dashboard. From here, you can:
 * **Start / Stop** the background bot runtime.
 * **Configure Workspaces**: Manage directories where terminal sessions can be started.
 * **Autostart Settings**: Set up the application to run automatically on system boot.
@@ -75,7 +125,7 @@ Once the bot runtime is active, you can interact with it via the following Teleg
    * **▲ Up / ▼ Down** — Navigate command history.
 
 #### **📂 Directory Workspaces**
-* Select **📁 Workspaces** from the main menu to view the folders configured in `data/workspaces.json`.
+* Select **📁 Workspaces** from the main menu to view configured folders.
 * Selecting a workspace sets it as the working directory for your next PTY session.
 
 #### **⚙️ Dynamic Configuration**
@@ -85,61 +135,9 @@ Once the bot runtime is active, you can interact with it via the following Teleg
 
 ---
 
-## 🛠️ Quick Start
-
-### 1. Prerequisites
-Ensure you have [Node.js](https://nodejs.org/) (v18+) and `npm` installed.
-
-### 2. Installation
-Clone the repository and install the dependencies:
-```bash
-git clone https://github.com/quangnv13/nonstop.git
-cd nonstop
-npm install
-```
-
-### 3. Build the Application
-Compile TypeScript to JavaScript production files:
-```bash
-npm run build
-```
-
-### 4. Run `nonstop`
-Launch the interactive terminal-based Control Center:
-```bash
-npm start
-```
-> [!NOTE]
-> On the first launch, if your `.env` configuration file is missing, `nonstop` will automatically trigger a **Setup Wizard** to configure your Telegram bot token, allowed admin username, client name, language, and startup settings.
-
-For development mode (with hot-reload):
-```bash
-npm run dev
-```
-
----
-
-## 📁 Repository Layout
-
-```text
-nonstop/
-├── data/               # Persistent storage (logs, workspaces.json, last-chat-id)
-├── src/                # TypeScript source files
-│   ├── bot.ts          # Telegram bot handlers & callback commands
-│   ├── config.ts       # Config parsers, disk storage, and env bindings
-│   ├── runtime.ts      # Shell session controls & PTY managers
-│   ├── ui.ts           # TUI Control Center console interface
-│   └── index.ts        # App bootstrapper
-├── dist/               # Compiled JavaScript files
-├── .env                # Runtime environment file (git-ignored)
-└── package.json        # Node manifest & scripts
-```
-
----
-
 ## 🎛️ Configuration
 
-Configuration is managed via `.env` at the root of the project. You can copy the template from [`.env.example`](.env.example):
+Configuration is managed via `.env` in the folder where you run the CLI. A template is generated automatically as `.env.example`:
 
 ```ini
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
@@ -149,18 +147,6 @@ CLIENT_NAME=nonstop-local
 APP_LANGUAGE=en
 STARTUP_MODE=disabled
 ```
-
-### 🤖 Creating Your Telegram Bot
-To run `nonstop`, you must obtain a Telegram Bot token. Here is how to create one using `@BotFather`:
-
-1. Open Telegram and search for **@BotFather** (ensure it has the verified blue checkmark).
-2. Start a chat and click **Start** (or send the `/start` command).
-3. Send the `/newbot` command to initiate the bot creation process.
-4. Choose a friendly name for your bot (e.g., `My Nonstop Controller`).
-5. Choose a unique username for your bot, which must end in `bot` (e.g., `my_nonstop_bot`).
-6. Once created, `@BotFather` will reply with your **HTTP API Access Token** (e.g., `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`).
-7. Keep this token private! Copy the token and paste it into your `.env` file as `TELEGRAM_BOT_TOKEN`, or enter it directly into the Setup Wizard when starting `nonstop` for the first time.
-
 
 ---
 
