@@ -47,16 +47,17 @@ export function detectPlatform(): 'windows' | 'linux' | 'unsupported' {
   return 'unsupported';
 }
 
-export function applyStartupMode(mode: StartupMode, entryScriptPath: string, workdir: string): string {
+export function applyStartupMode(mode: StartupMode, entryScriptPath: string, workdir: string, language?: string): string {
   const platform = detectPlatform();
+  const isVi = language === 'vi';
   if (platform === 'unsupported') {
-    return 'Unsupported OS for startup integration.';
+    return isVi ? 'Hệ điều hành không hỗ trợ cấu hình khởi động.' : 'Unsupported OS for startup integration.';
   }
 
   clearStartupArtifacts();
 
   if (mode === 'disabled') {
-    return 'Startup with OS disabled.';
+    return isVi ? 'Đã tắt khởi động cùng hệ điều hành.' : 'Startup with OS disabled.';
   }
 
   if (platform === 'windows') {
@@ -72,7 +73,7 @@ export function applyStartupMode(mode: StartupMode, entryScriptPath: string, wor
     fs.mkdirSync(startupDir, { recursive: true });
     const cmdPath = path.join(startupDir, 'nonstop.cmd');
     fs.writeFileSync(cmdPath, `@echo off\r\ncd /d "${workdir}"\r\n${buildWindowsStartupCommand(entryScriptPath, mode)}\r\n`, 'utf8');
-    return `Startup enabled on Windows (${mode}).`;
+    return isVi ? `Đã bật khởi động cùng Windows (${mode === 'background' ? 'chạy nền' : 'mở giao diện'}).` : `Startup enabled on Windows (${mode}).`;
   }
 
   if (mode === 'open-ui') {
@@ -83,7 +84,7 @@ export function applyStartupMode(mode: StartupMode, entryScriptPath: string, wor
       buildLinuxAutostartDesktopEntry(entryScriptPath),
       'utf8'
     );
-    return 'Startup enabled on Linux desktop login (open-ui).';
+    return isVi ? 'Đã bật khởi động khi đăng nhập Linux desktop (open-ui).' : 'Startup enabled on Linux desktop login (open-ui).';
   }
 
   const systemdDir = path.join(os.homedir(), '.config', 'systemd', 'user');
@@ -93,7 +94,7 @@ export function applyStartupMode(mode: StartupMode, entryScriptPath: string, wor
     buildLinuxSystemdService(workdir, entryScriptPath),
     'utf8'
   );
-  return 'Startup enabled on Linux user service (background).';
+  return isVi ? 'Đã bật khởi động dạng user service trên Linux (background).' : 'Startup enabled on Linux user service (background).';
 }
 
 export function clearStartupArtifacts(): void {

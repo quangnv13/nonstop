@@ -1,10 +1,9 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { createBotRuntime, BotRuntime } from './bot.js';
+import { createBotRuntime, BotRuntime, loadLastChatId } from './bot.js';
 import { AppConfig } from './config.js';
 import { logger } from './logger.js';
-import { detectConfirmationPrompt } from './prompt-detection.js';
 import { RuntimeStateSnapshot, saveRuntimeState, clearRuntimeState } from './runtime-state.js';
 import { shouldSkipSessionOutput } from './session-delivery.js';
 import { buildSessionOutputMessages, SessionOutputMessage } from './session-output.js';
@@ -31,8 +30,6 @@ type SessionOutputPushCallback = (
   options?: SessionOutputMessage['options']
 ) => Promise<void>;
 
-type ConfirmationPromptCallback = (session: ActiveSessionState, text: string) => void;
-
 export class NonstopRuntime {
   private config: AppConfig;
   private mode: 'background' | 'foreground';
@@ -46,7 +43,6 @@ export class NonstopRuntime {
   private outputTicker: NodeJS.Timeout | null = null;
   private heartbeatTicker: NodeJS.Timeout | null = null;
   private onSessionOutputPush: SessionOutputPushCallback | null = null;
-  private onConfirmationPrompt: ConfirmationPromptCallback | null = null;
   private bot: BotRuntime | null = null;
 
   constructor(config: AppConfig, mode: 'background' | 'foreground') {
@@ -113,20 +109,30 @@ export class NonstopRuntime {
       await this.bot?.pushSessionOutput(chatId, text, options);
     });
 
-    this.setConfirmationPromptCallback((session, text) => {
-      void this.bot?.showConfirmationPrompt(session, text);
-    });
+    // Ghi heartbeat TRƯỚC khi bot connect để UI polling nhận ngay trạng thái RUNNING
+    this.startHeartbeat();
 
     await this.bot.start({
-      onStart: (botInfo) => {
-        logger.info('Telegram bot started', {
+      onStart: async (botInfo) => {
+        logger.info('Telegram bot đã khởi động', {
           username: botInfo.username,
           mode: this.mode
         });
+
+        // Gửi thông báo hello tới Telegram
+        const lastChatId = loadLastChatId();
+        if (lastChatId && this.bot) {
+          try {
+            await this.bot.pushSessionOutput(
+              lastChatId,
+              `✅ nonstop client đã khởi động thành công và đang chạy!\n🖥 Client: ${this.config.clientName}`
+            );
+          } catch {
+            // ignore
+          }
+        }
       }
     });
-
-    this.startHeartbeat();
   }
 
   async stopBot(): Promise<void> {
@@ -289,10 +295,6 @@ export class NonstopRuntime {
     this.onSessionOutputPush = callback;
   }
 
-  private setConfirmationPromptCallback(callback: ConfirmationPromptCallback | null): void {
-    this.onConfirmationPrompt = callback;
-  }
-
   private startHeartbeat(): void {
     this.writeHeartbeat();
 
@@ -373,12 +375,13 @@ export class NonstopRuntime {
       return;
     }
 
-    if (shouldSkipSessionOutput(session.lastSentFinalText, finalText)) {
+    // Lọc loading spinner và window title residue
+    if (isSpinnerOrNoiseOutput(finalText)) {
       return;
     }
 
-    if (this.onConfirmationPrompt && detectConfirmationPrompt(promptDetectionText)) {
-      this.onConfirmationPrompt(session, limitLines(promptDetectionText, this.config.maxOutputLines));
+    if (shouldSkipSessionOutput(session.lastSentFinalText, finalText)) {
+      return;
     }
 
     const messages = buildSessionOutputMessages({
@@ -657,4 +660,26 @@ function renderTerminalSnapshot(state: TerminalRenderState, maxOutputLines: numb
     rawLines.map((line) => line.slice(commonIndent)).join('\n').trim(),
     maxOutputLines
   );
+}
+
+/**
+ * Lọc bỏ output chỉ chứa loading spinner, window title, hoặc ký tự thừa trước khi gửi Telegram.
+ */
+function isSpinnerOrNoiseOutput(text: string): boolean {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return true;
+
+  // Nếu tất cả các dòng đều là noise thì bỏ
+  const noisePatterns = [
+    /^[\u2800-\u28FF\s]+$/, // Braille spinner
+    /^\]0;/,               // Window title sequence
+    /^q{1,4}\d?\w{0,5}$/, // "q", "q8", "qrk" etc.
+    /^[\s\u2800-\u28FF\]0;q\r\n]{1,20}$/ // Short mixed noise
+  ];
+
+  const allNoise = lines.every(line =>
+    noisePatterns.some(pattern => pattern.test(line))
+  );
+
+  return allNoise;
 }

@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { logger } from './logger.js';
 import { buildSessionActionMarkup } from './session-controls.js';
 import { SessionOutputMessage } from './session-output.js';
@@ -64,11 +66,31 @@ interface ChatState {
 }
 
 const SUPPORTED_PRESETS: SessionPreset[] = ['powershell', 'bash', 'codex', 'antigravity'];
+const LAST_CHAT_ID_PATH = path.join(process.cwd(), 'data', 'last-chat-id.txt');
+
+function saveLastChatId(chatId: number): void {
+  try {
+    fs.mkdirSync(path.dirname(LAST_CHAT_ID_PATH), { recursive: true });
+    fs.writeFileSync(LAST_CHAT_ID_PATH, String(chatId), 'utf8');
+  } catch {
+    // ignore
+  }
+}
+
+export function loadLastChatId(): number | null {
+  try {
+    if (!fs.existsSync(LAST_CHAT_ID_PATH)) return null;
+    const val = parseInt(fs.readFileSync(LAST_CHAT_ID_PATH, 'utf8').trim(), 10);
+    return Number.isFinite(val) ? val : null;
+  } catch {
+    return null;
+  }
+}
 
 export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
-    throw new Error('TELEGRAM_BOT_TOKEN is required.');
+    throw new Error('TELEGRAM_BOT_TOKEN là bắt buộc.');
   }
 
   const allowedUsername = normalizeUsername(
@@ -79,25 +101,23 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
 
   function getChatState(chatId: number): ChatState {
     const existing = chatStates.get(chatId);
-    if (existing) {
-      return existing;
-    }
-
+    if (existing) return existing;
     const nextState: ChatState = { workspaceDraft: null };
     chatStates.set(chatId, nextState);
     return nextState;
   }
 
-  async function safeAnswerCallback(ctx: BotContext, text?: string): Promise<void> {
-    if (!ctx.callbackQuery) {
-      return;
-    }
+  // Lưu chat ID mỗi lần có tương tác
+  function trackChatId(ctx: BotContext): void {
+    const chatId = ctx.chat?.id;
+    if (chatId) saveLastChatId(chatId);
+  }
 
+  async function safeAnswerCallback(ctx: BotContext, text?: string): Promise<void> {
+    if (!ctx.callbackQuery) return;
     try {
       await ctx.answerCallbackQuery(text ? { text } : undefined);
-    } catch {
-      return;
-    }
+    } catch { /* ignore */ }
   }
 
   async function renderText(
@@ -110,11 +130,8 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       try {
         await ctx.editMessageText(text, replyMarkup ? { reply_markup: replyMarkup } : undefined);
         return;
-      } catch {
-        // Fallback to reply when callback message is no longer editable.
-      }
+      } catch { /* fallback to reply */ }
     }
-
     await ctx.reply(text, replyMarkup ? { reply_markup: replyMarkup } : undefined);
   }
 
@@ -123,18 +140,18 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
   }
 
   function getWorkspaceById(workspaceId: string): Workspace | undefined {
-    return deps.getWorkspaces().find((workspace) => workspace.id === workspaceId);
+    return deps.getWorkspaces().find((w) => w.id === workspaceId);
   }
 
   function buildMainMenuText(): string {
     const activeSession = deps.getActiveSession();
     return [
-      'Local Telegram CLI',
+      '🖥  nonstop client',
       '',
-      `Workspaces: ${deps.getWorkspaces().length}`,
+      `📁 Workspaces: ${deps.getWorkspaces().length}`,
       activeSession
-        ? `Active session: ${activeSession.preset} | ${activeSession.cwd}`
-        : 'Active session: none'
+        ? `⚡ Session: ${activeSession.preset} | ${activeSession.cwd}`
+        : '⚡ Session: không có'
     ].join('\n');
   }
 
@@ -143,7 +160,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       .text('📁 Workspaces', 'workspaces_list')
       .text('⚡ Session', 'sessions_list')
       .row()
-      .text('ℹ️ Help', 'help_view');
+      .text('ℹ️ Trợ giúp', 'help_view');
   }
 
   async function showMainMenu(ctx: BotContext): Promise<void> {
@@ -154,15 +171,16 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     await renderText(
       ctx,
       [
-        'Commands',
+        '📖 Lệnh có sẵn',
         '',
-        '/start - open main menu',
-        '/status - show local runtime status',
-        '/help - show this help',
+        '/start — Mở menu chính',
+        '/status — Trạng thái runtime',
+        '/help — Trợ giúp',
+        '/send <lệnh> — Gửi lệnh thô tới session',
         '',
-        'When session input mode is ON, plain text is sent to the active session.'
+        'Khi input mode BẬT, tin nhắn thường sẽ được gửi thẳng vào session.'
       ].join('\n'),
-      createKeyboard().text('⬅️ Back', 'main_menu')
+      createKeyboard().text('⬅️ Quay lại', 'main_menu')
     );
   }
 
@@ -171,43 +189,43 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     await renderText(
       ctx,
       [
-        'Local Runtime Status',
+        '📊 Trạng thái Runtime',
         '',
-        `Configured user: ${allowedUsername || 'not restricted'}`,
+        `Người dùng: ${allowedUsername || 'không giới hạn'}`,
         `Workspaces: ${deps.getWorkspaces().length}`,
-        `Running session: ${activeSession ? 'yes' : 'no'}`,
-        activeSession ? `Preset: ${activeSession.preset}` : 'Preset: -',
-        activeSession ? `CWD: ${activeSession.cwd}` : 'CWD: -'
-      ].join('\n'),
-      createKeyboard().text('⬅️ Back', 'main_menu')
+        `Session: ${activeSession ? 'đang chạy' : 'không có'}`,
+        activeSession ? `Preset: ${activeSession.preset}` : '',
+        activeSession ? `Thư mục: ${activeSession.cwd}` : ''
+      ].filter(Boolean).join('\n'),
+      createKeyboard().text('⬅️ Quay lại', 'main_menu')
     );
   }
 
   async function showWorkspacesMenu(ctx: BotContext): Promise<void> {
     const workspaces = deps.getWorkspaces();
-    const lines = ['Workspaces', ''];
+    const lines = ['📁 Danh sách Workspace', ''];
     const keyboard = createKeyboard();
 
     if (workspaces.length === 0) {
-      lines.push('No workspaces saved yet.');
+      lines.push('Chưa có workspace nào.');
     } else {
-      for (const workspace of workspaces) {
-        lines.push(`• ${workspace.name}`);
-        lines.push(`  ${workspace.path}`);
-        keyboard.text(`📁 ${workspace.name}`, `view_workspace:${workspace.id}`).row();
+      for (const ws of workspaces) {
+        lines.push(`• ${ws.name}`);
+        lines.push(`  ${ws.path}`);
+        keyboard.text(`📁 ${ws.name}`, `view_workspace:${ws.id}`).row();
       }
     }
 
-    keyboard.text('➕ Add Workspace', 'workspace_action:add').row().text('⬅️ Back', 'main_menu');
+    keyboard.text('➕ Thêm workspace', 'workspace_action:add').row().text('⬅️ Quay lại', 'main_menu');
     await renderText(ctx, lines.join('\n'), keyboard);
   }
 
   function buildWorkspaceDetailsKeyboard(workspace: Workspace): unknown {
     return createKeyboard()
-      .text('✏️ Edit Name', `workspace_action:edit_name:${workspace.id}`)
-      .text('🛠️ Edit Path', `workspace_action:edit_path:${workspace.id}`)
+      .text('✏️ Sửa tên', `workspace_action:edit_name:${workspace.id}`)
+      .text('🛠️ Sửa đường dẫn', `workspace_action:edit_path:${workspace.id}`)
       .row()
-      .text('🗑️ Delete', `workspace_action:delete:${workspace.id}`)
+      .text('🗑️ Xóa', `workspace_action:delete:${workspace.id}`)
       .row()
       .text('Powershell', `start_session:${workspace.id}:powershell`)
       .text('Bash', `start_session:${workspace.id}:bash`)
@@ -215,23 +233,18 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       .text('Codex', `start_session:${workspace.id}:codex`)
       .text('Antigravity', `start_session:${workspace.id}:antigravity`)
       .row()
-      .text('⬅️ Back', 'workspaces_list');
+      .text('⬅️ Quay lại', 'workspaces_list');
   }
 
   async function showWorkspaceDetails(ctx: BotContext, workspaceId: string): Promise<void> {
     const workspace = getWorkspaceById(workspaceId);
     if (!workspace) {
-      await renderText(
-        ctx,
-        'Workspace not found.',
-        createKeyboard().text('⬅️ Back', 'workspaces_list')
-      );
+      await renderText(ctx, 'Workspace không tìm thấy.', createKeyboard().text('⬅️ Quay lại', 'workspaces_list'));
       return;
     }
-
     await renderText(
       ctx,
-      ['Workspace Details', '', `Name: ${workspace.name}`, `Path: ${workspace.path}`].join('\n'),
+      ['📁 Chi tiết Workspace', '', `Tên: ${workspace.name}`, `Đường dẫn: ${workspace.path}`].join('\n'),
       buildWorkspaceDetailsKeyboard(workspace)
     );
   }
@@ -239,25 +252,25 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
   async function showSessionsMenu(ctx: BotContext): Promise<void> {
     const activeSession = deps.getActiveSession();
     const keyboard = createKeyboard();
-    const lines = ['Session', ''];
+    const lines = ['⚡ Session', ''];
 
     if (!activeSession || activeSession.status !== 'running') {
-      lines.push('No active session.');
+      lines.push('Không có session đang chạy.');
     } else {
       lines.push(`ID: ${activeSession.sessionId}`);
       lines.push(`Preset: ${activeSession.preset}`);
-      lines.push(`CWD: ${activeSession.cwd}`);
-      keyboard.text('⚡ Open Controls', `view_session:${activeSession.sessionId}`).row();
+      lines.push(`Thư mục: ${activeSession.cwd}`);
+      keyboard.text('🎮 Điều khiển', `view_session:${activeSession.sessionId}`).row();
     }
 
-    keyboard.text('⬅️ Back', 'main_menu');
+    keyboard.text('⬅️ Quay lại', 'main_menu');
     await renderText(ctx, lines.join('\n'), keyboard);
   }
 
   async function showSessionDetails(ctx: BotContext, sessionId?: string): Promise<void> {
     const session = deps.getActiveSession();
     if (!session || session.status !== 'running' || (sessionId && session.sessionId !== sessionId)) {
-      await renderText(ctx, 'Session is not running.', createKeyboard().text('⬅️ Back', 'main_menu'));
+      await renderText(ctx, 'Session không đang chạy.', createKeyboard().text('⬅️ Quay lại', 'main_menu'));
       return;
     }
 
@@ -271,14 +284,14 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     await renderText(
       ctx,
       [
-        'Session Details',
+        '🎮 Điều khiển Session',
         '',
         `ID: ${session.sessionId}`,
         `Preset: ${session.preset}`,
-        `Status: ${session.status}`,
-        `CWD: ${session.cwd}`,
-        `Input mode: ${session.inputMode ? 'ON' : 'OFF'}`,
-        `Auto enter: ${session.autoEnter ? 'ON' : 'OFF'}`
+        `Trạng thái: ${session.status}`,
+        `Thư mục: ${session.cwd}`,
+        `Input mode: ${session.inputMode ? 'BẬT' : 'TẮT'}`,
+        `Auto enter: ${session.autoEnter ? 'BẬT' : 'TẮT'}`
       ].join('\n'),
       keyboard
     );
@@ -290,10 +303,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     prompt: string
   ): Promise<void> {
     const chatId = ctx.chat?.id;
-    if (!chatId) {
-      return;
-    }
-
+    if (!chatId) return;
     getChatState(chatId).workspaceDraft = workspaceDraft;
     await ctx.reply(prompt);
   }
@@ -301,21 +311,17 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
   async function handleWorkspaceDraft(ctx: BotContext): Promise<boolean> {
     const chatId = ctx.chat?.id;
     const text = ctx.message?.text?.trim();
-    if (!chatId || !text) {
-      return false;
-    }
+    if (!chatId || !text) return false;
 
     const state = getChatState(chatId);
     const draft = state.workspaceDraft;
-    if (!draft) {
-      return false;
-    }
+    if (!draft) return false;
 
     const workspaces = [...deps.getWorkspaces()];
 
     if (draft.mode === 'add_name') {
       state.workspaceDraft = { mode: 'add_path', name: text };
-      await ctx.reply('Enter the workspace path.');
+      await ctx.reply('Nhập đường dẫn workspace:');
       return true;
     }
 
@@ -328,15 +334,15 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       workspaces.push(workspace);
       deps.saveWorkspaces(workspaces);
       state.workspaceDraft = null;
-      await ctx.reply(`Added workspace "${workspace.name}".`);
+      await ctx.reply(`✓ Đã thêm workspace "${workspace.name}".`);
       await showWorkspaceDetails(ctx, workspace.id);
       return true;
     }
 
-    const targetIndex = workspaces.findIndex((workspace) => workspace.id === draft.workspaceId);
+    const targetIndex = workspaces.findIndex((w) => w.id === draft.workspaceId);
     if (targetIndex === -1) {
       state.workspaceDraft = null;
-      await ctx.reply('Workspace no longer exists.');
+      await ctx.reply('Workspace không còn tồn tại.');
       return true;
     }
 
@@ -344,7 +350,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       workspaces[targetIndex] = { ...workspaces[targetIndex], name: text };
       deps.saveWorkspaces(workspaces);
       state.workspaceDraft = null;
-      await ctx.reply('Workspace name updated.');
+      await ctx.reply('✓ Đã cập nhật tên workspace.');
       await showWorkspaceDetails(ctx, workspaces[targetIndex].id);
       return true;
     }
@@ -353,7 +359,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       workspaces[targetIndex] = { ...workspaces[targetIndex], path: text };
       deps.saveWorkspaces(workspaces);
       state.workspaceDraft = null;
-      await ctx.reply('Workspace path updated.');
+      await ctx.reply('✓ Đã cập nhật đường dẫn workspace.');
       await showWorkspaceDetails(ctx, workspaces[targetIndex].id);
       return true;
     }
@@ -361,13 +367,14 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     return false;
   }
 
+  // Middleware: kiểm tra quyền & lưu chat ID
   bot.use(async (ctx, next) => {
+    trackChatId(ctx);
     const username = normalizeUsername(ctx.from?.username);
     if (allowedUsername && username !== allowedUsername) {
-      await ctx.reply('This bot is restricted to the configured local Telegram account.');
+      await ctx.reply('Bot này chỉ dành cho tài khoản Telegram đã cấu hình.');
       return;
     }
-
     await next();
   });
 
@@ -383,24 +390,41 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     await showStatus(ctx);
   });
 
-  bot.on('message:text', async (ctx) => {
-    if (ctx.message.text.startsWith('/')) {
+  // /send <lệnh> — gửi raw text tới session đang chạy
+  bot.command('send', async (ctx) => {
+    const rawText = ctx.message?.text ?? '';
+    // Bỏ phần "/send " ở đầu
+    const payload = rawText.replace(/^\/send\s*/i, '').trim();
+    if (!payload) {
+      await ctx.reply('Cách dùng: /send <lệnh cần gửi>');
       return;
     }
+    const session = deps.getActiveSession();
+    if (!session || session.status !== 'running') {
+      await ctx.reply('Không có session đang chạy.');
+      return;
+    }
+    deps.sendInput(session.autoEnter ? `${payload}\r` : payload);
+    await ctx.reply('✓ Đã gửi lệnh');
+  });
 
-    if (await handleWorkspaceDraft(ctx)) {
-      return;
-    }
+  bot.on('message:text', async (ctx) => {
+    const text: string = ctx.message.text;
+
+    // Bỏ qua các lệnh bắt đầu bằng /
+    if (text.startsWith('/')) return;
+
+    if (await handleWorkspaceDraft(ctx)) return;
 
     const session = deps.getActiveSession();
     if (session?.status === 'running' && session.inputMode) {
-      const payload = session.autoEnter ? `${ctx.message.text}\r` : ctx.message.text;
+      const payload = session.autoEnter ? `${text}\r` : text;
       deps.sendInput(payload);
-      await ctx.reply(`Sent to session: ${ctx.message.text}`);
+      await ctx.reply('✓ Đã gửi lệnh');
       return;
     }
 
-    await ctx.reply('Use /start to open the menu.');
+    await ctx.reply('Dùng /start để mở menu.');
   });
 
   bot.callbackQuery('main_menu', async (ctx) => {
@@ -425,7 +449,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
 
   bot.callbackQuery('workspace_action:add', async (ctx) => {
     await safeAnswerCallback(ctx);
-    await beginWorkspaceDraft(ctx, { mode: 'add_name' }, 'Enter a name for the new workspace.');
+    await beginWorkspaceDraft(ctx, { mode: 'add_name' }, 'Nhập tên workspace mới:');
   });
 
   bot.callbackQuery(/^workspace_action:edit_name:(.+)$/, async (ctx) => {
@@ -433,7 +457,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     await beginWorkspaceDraft(
       ctx,
       { mode: 'edit_name', workspaceId: ctx.match[1] },
-      'Enter the new workspace name.'
+      'Nhập tên workspace mới:'
     );
   });
 
@@ -442,13 +466,13 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     await beginWorkspaceDraft(
       ctx,
       { mode: 'edit_path', workspaceId: ctx.match[1] },
-      'Enter the new workspace path.'
+      'Nhập đường dẫn workspace mới:'
     );
   });
 
   bot.callbackQuery(/^workspace_action:delete:(.+)$/, async (ctx) => {
     await safeAnswerCallback(ctx);
-    const workspaces = deps.getWorkspaces().filter((workspace) => workspace.id !== ctx.match[1]);
+    const workspaces = deps.getWorkspaces().filter((w) => w.id !== ctx.match[1]);
     deps.saveWorkspaces(workspaces);
     await showWorkspacesMenu(ctx);
   });
@@ -459,18 +483,18 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     const preset = ctx.match[2] as SessionPreset;
 
     if (!SUPPORTED_PRESETS.includes(preset)) {
-      await ctx.reply(`Unsupported preset: ${preset}`);
+      await ctx.reply(`Preset không hỗ trợ: ${preset}`);
       return;
     }
 
     if (deps.getActiveSession()?.status === 'running') {
-      await ctx.reply('Đã có một session đang chạy. Hãy dừng session hiện tại trước.');
+      await ctx.reply('Đã có session đang chạy. Dừng session hiện tại trước.');
       return;
     }
 
     const workspace = getWorkspaceById(workspaceId);
     if (!workspace) {
-      await ctx.reply('Workspace not found.');
+      await ctx.reply('Workspace không tìm thấy.');
       return;
     }
 
@@ -478,12 +502,12 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       await deps.startSession(ctx.chat.id, workspace.id, preset);
       await showSessionDetails(ctx);
     } catch (error) {
-      logger.error('Failed to start session', {
+      logger.error('Lỗi khi khởi chạy session', {
         workspaceId,
         preset,
         error: error instanceof Error ? error.message : String(error)
       });
-      await ctx.reply(`Lỗi khi khởi chạy session / Error starting session: ${error instanceof Error ? error.message : String(error)}`);
+      await ctx.reply(`Lỗi khi khởi chạy session: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
 
@@ -504,7 +528,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     const action = ctx.match[2];
 
     if (!session || session.sessionId !== sessionId || session.status !== 'running') {
-      await ctx.reply('Session is not running.');
+      await ctx.reply('Session không đang chạy.');
       return;
     }
 
@@ -528,53 +552,15 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       case 'refresh':
         break;
       default:
-        await ctx.reply(`Unsupported session action: ${action}`);
+        await ctx.reply(`Hành động không hỗ trợ: ${action}`);
         return;
     }
 
     await showSessionDetails(ctx, sessionId);
   });
 
-  bot.callbackQuery(/^confirm_input:(.+):(.+)$/, async (ctx) => {
-    await safeAnswerCallback(ctx);
-    const session = deps.getActiveSession();
-    const sessionId = ctx.match[1];
-    const payload = ctx.match[2];
-
-    if (!session || session.sessionId !== sessionId || session.status !== 'running') {
-      await ctx.reply('Session is not running.');
-      return;
-    }
-
-    switch (payload) {
-      case 'yes':
-        deps.sendInput('y\r');
-        break;
-      case 'no':
-        deps.sendInput('n\r');
-        break;
-      case 'up':
-        deps.sendKey('send_up');
-        break;
-      case 'down':
-        deps.sendKey('send_down');
-        break;
-      case 'enter':
-        deps.sendKey('send_enter');
-        break;
-      case 'interrupt':
-        deps.sendKey('send_escape');
-        break;
-      default:
-        await ctx.reply(`Unsupported confirmation action: ${payload}`);
-        return;
-    }
-
-    await ctx.reply(`Sent action: ${payload}`);
-  });
-
   bot.catch((error) => {
-    logger.error('Bot update handler error', {
+    logger.error('Lỗi bot handler', {
       error: error.error instanceof Error ? error.error.message : String(error.error)
     });
   });
@@ -582,7 +568,9 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
   return {
     async start(options) {
       const botInfo = await bot.api.getMe();
-      await bot.start();
+      void bot.start();
+      // Đợi bot khởi động
+      await new Promise(r => setTimeout(r, 800));
       options?.onStart?.(botInfo);
     },
     async stop() {
@@ -591,31 +579,15 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     async pushSessionOutput(chatId, text, options) {
       await bot.api.sendMessage(chatId, text, options);
     },
-    async showConfirmationPrompt(session, text) {
-      const keyboard = createKeyboard()
-        .text('✅ Yes', `confirm_input:${session.sessionId}:yes`)
-        .text('❌ No', `confirm_input:${session.sessionId}:no`)
-        .row()
-        .text('⬆️ Up', `confirm_input:${session.sessionId}:up`)
-        .text('⬇️ Down', `confirm_input:${session.sessionId}:down`)
-        .row()
-        .text('⏎ Enter', `confirm_input:${session.sessionId}:enter`)
-        .text('⎋ Interrupt', `confirm_input:${session.sessionId}:interrupt`);
-
-      await bot.api.sendMessage(
-        session.listenerChatId,
-        `Confirmation prompt detected in session ${session.sessionId}\n\n${text.slice(0, 500)}`,
-        { reply_markup: keyboard }
-      );
+    // Confirmation prompt đã bị xóa — không dùng nữa
+    async showConfirmationPrompt(_session, _text) {
+      // Intentionally disabled
     }
   };
 }
 
 function normalizeUsername(username: string | null | undefined): string {
   const value = (username || '').trim();
-  if (!value) {
-    return '';
-  }
-
+  if (!value) return '';
   return value.startsWith('@') ? value.toLowerCase() : `@${value.toLowerCase()}`;
 }
