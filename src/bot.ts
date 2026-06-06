@@ -72,7 +72,7 @@ interface ChatState {
   pendingDangerousCommand?: string;
 }
 
-const SUPPORTED_PRESETS: SessionPreset[] = ['powershell', 'bash', 'codex', 'antigravity'];
+const SUPPORTED_PRESETS: SessionPreset[] = ['powershell', 'bash', 'codex', 'antigravity', 'claude'];
 const LAST_CHAT_ID_PATH = path.join(process.cwd(), 'data', 'last-chat-id.txt');
 
 function saveLastChatId(chatId: number): void {
@@ -235,6 +235,8 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       `• Codex Args: ${config.codexArgs}`,
       `• Antigravity Cmd: ${config.antigravityCmd}`,
       `• Antigravity Args: ${config.antigravityArgs}`,
+      `• Claude Cmd: ${config.claudeCmd}`,
+      `• Claude Args: ${config.claudeArgs}`,
       `• Dangerous Cmds: ${config.dangerousCommandConfirm || notConfigured}`
     ];
 
@@ -258,6 +260,9 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       .text('Antigravity Cmd', 'config_edit:antigravityCmd')
       .row()
       .text('Antigravity Args', 'config_edit:antigravityArgs')
+      .row()
+      .text('Claude Cmd', 'config_edit:claudeCmd')
+      .text('Claude Args', 'config_edit:claudeArgs')
       .row()
       .text('Dangerous Cmds', 'config_edit:dangerousCommandConfirm')
       .row()
@@ -299,6 +304,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       .row()
       .text('Codex', `start_session:${workspace.id}:codex`)
       .text('Antigravity', `start_session:${workspace.id}:antigravity`)
+      .text('Claude', `start_session:${workspace.id}:claude`)
       .row()
       .text(t('bot.general.back'), 'workspaces_list');
   }

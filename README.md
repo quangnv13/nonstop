@@ -34,7 +34,7 @@
 ## 🌟 Key Features
 
 * **💻 Immersive TUI Control Center** — Manage runtime processes, inspect logs, register workspaces, and edit configuration directly from a command-line interface.
-* **🤖 Telegram PTY Terminal** — Execute and control real-time, interactive shell sessions (PowerShell, Bash, Codex, or Antigravity) remotely from Telegram.
+* **🤖 Telegram PTY Terminal** — Execute and control real-time, interactive shell sessions (PowerShell, Bash, Codex, Antigravity, or Claude) remotely from Telegram.
 * **⚙️ Inline Configuration Engine** — Modify environment settings dynamically through the new `/config` inline Telegram menu or directly in the CLI.
 * **📂 Smart Workspaces** — Navigate and switch between different working directories on your machine with a few taps.
 * **🔄 Optimized Output Stream** — Advanced batch-delivery mechanics with configurable output intervals (`OUTPUT_INTERVAL`) and interaction-triggered flush delays (`ACTION_INTERVAL`), ensuring fluid terminal logs inside Telegram without hitting API limits.
@@ -122,7 +122,7 @@ Once the bot runtime is active, you can interact with it via the following Teleg
 
 #### **⚡ Managing PTY Shell Sessions**
 1. Select **⚡ Session** from the main menu.
-2. Select an environment preset (e.g., **PowerShell**, **Bash**, **Codex**, or **Antigravity**) to start a session.
+2. Select an environment preset (e.g., **PowerShell**, **Bash**, **Codex**, **Antigravity**, or **Claude**) to start a session.
 3. Once running, **enable Input Mode**.
 4. Any normal text message you send to the bot (without a leading `/`) will be fed directly into your shell.
 5. Use the inline control buttons to send key inputs:
@@ -158,6 +158,14 @@ STARTUP_MODE=disabled
 OUTPUT_INTERVAL=20000
 ACTION_INTERVAL=5000
 DANGEROUS_COMMAND_CONFIRM=rm -rf /,rm -rf,rm -fr,sudo,del /s,rd /s,rmdir /s,format,shutdown,reboot,poweroff,init 0,dd if=,mkfs,fdisk
+
+# CLI OVERRIDES (Optional)
+CODEX_CMD=codex
+CODEX_ARGS=[]
+ANTIGRAVITY_CMD=agy
+ANTIGRAVITY_ARGS=[]
+CLAUDE_CMD=claude
+CLAUDE_ARGS=[]
 ```
 
 ---

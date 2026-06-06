@@ -1,4 +1,4 @@
-export type SessionPreset = 'powershell' | 'bash' | 'codex' | 'antigravity';
+export type SessionPreset = 'powershell' | 'bash' | 'codex' | 'antigravity' | 'claude';
 
 export interface Workspace {
   id: string;

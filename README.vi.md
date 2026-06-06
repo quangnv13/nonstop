@@ -34,7 +34,7 @@
 ## 🌟 Tính Năng Nổi Bật
 
 * **💻 Trung Tâm Điều Khiển TUI Trực Quan** — Quản lý các tiến trình runtime, kiểm tra nhật ký (logs), đăng ký thư mục làm việc và sửa đổi cấu hình trực tiếp từ giao diện terminal.
-* **🤖 Terminal PTY Qua Telegram** — Thực thi và điều khiển các phiên shell tương tác thời gian thực (PowerShell, Bash, Codex hoặc Antigravity) từ xa thông qua Telegram.
+* **🤖 Terminal PTY Qua Telegram** — Thực thi và điều khiển các phiên shell tương tác thời gian thực (PowerShell, Bash, Codex, Antigravity hoặc Claude) từ xa thông qua Telegram.
 * **⚙️ Trình Cấu Hình Động Trực Tiếp** — Thay đổi các tham số môi trường động thông qua menu `/config` bằng các phím inline Telegram hoặc trực tiếp trên CLI.
 * **📂 Quản Lý Workspace Linh Hoạt** — Điều hướng và chuyển đổi nhanh chóng giữa các thư mục làm việc khác nhau trên máy chủ cục bộ.
 * **🔄 Luồng Đầu Ra Được Tối Ưu Hóa** — Cơ chế gom cụm đầu ra thông minh với khoảng giãn cách cấu hình được (`OUTPUT_INTERVAL`) và độ trễ flush kích hoạt bởi tương tác (`ACTION_INTERVAL`), giúp nhật ký terminal hiển thị mượt mà trên Telegram mà không vượt quá giới hạn API.
@@ -122,7 +122,7 @@ Khi bot đang hoạt động, bạn có thể tương tác với nó thông qua 
 
 #### **⚡ Quản Lý Các Phiên Shell PTY**
 1. Chọn **⚡ Session** từ menu chính.
-2. Chọn một môi trường shell (ví dụ: **PowerShell**, **Bash**, **Codex**, hoặc **Antigravity**) để bắt đầu.
+2. Chọn một môi trường shell (ví dụ: **PowerShell**, **Bash**, **Codex**, **Antigravity**, hoặc **Claude**) để bắt đầu.
 3. Khi phiên hoạt động, hãy **bật Chế Độ Nhập (Input Mode)**.
 4. Bất kỳ tin nhắn văn bản thông thường nào bạn gửi tới bot (không bắt đầu bằng dấu `/`) sẽ được ghi thẳng vào phiên shell của bạn.
 5. Sử dụng các nút bấm trên bàn phím inline để gửi nhanh phím chức năng:
@@ -158,6 +158,14 @@ STARTUP_MODE=disabled
 OUTPUT_INTERVAL=20000
 ACTION_INTERVAL=5000
 DANGEROUS_COMMAND_CONFIRM=rm -rf /,rm -rf,rm -fr,sudo,del /s,rd /s,rmdir /s,format,shutdown,reboot,poweroff,init 0,dd if=,mkfs,fdisk
+
+# CLI OVERRIDES (Optional)
+CODEX_CMD=codex
+CODEX_ARGS=[]
+ANTIGRAVITY_CMD=agy
+ANTIGRAVITY_ARGS=[]
+CLAUDE_CMD=claude
+CLAUDE_ARGS=[]
 ```
 
 ---

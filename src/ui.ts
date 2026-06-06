@@ -187,6 +187,13 @@ async function executeUpgrade(latestVersion: string, isVi: boolean): Promise<voi
       ? '  Đang mở cửa sổ PowerShell mới để nâng cấp. Tiến trình hiện tại sẽ tự đóng...' 
       : '  Opening new PowerShell window for upgrade. Current process will exit...'));
 
+    const upgradingMsg = isVi 
+      ? `Đang nâng cấp @quangnv13/nonstop lên phiên bản ${latestVersion}...` 
+      : `Upgrading @quangnv13/nonstop to version ${latestVersion}...`;
+    const completeMsg = isVi 
+      ? `Nâng cấp nonstop hoàn tất! Cửa sổ này sẽ tự đóng sau 3 giây...` 
+      : `nonstop upgrade completed! This window will close in 3 seconds...`;
+
     const cmd = 'cmd.exe';
     const args = [
       '/c',
@@ -194,7 +201,7 @@ async function executeUpgrade(latestVersion: string, isVi: boolean): Promise<voi
       'powershell',
       '-NoProfile',
       '-Command',
-      `Start-Sleep -Seconds 1; Write-Host 'Đang nâng cấp @quangnv13/nonstop lên phiên bản ${latestVersion}...'; npm install -g @quangnv13/nonstop@latest; Write-Host 'Hoàn tất! Cửa sổ này sẽ tự đóng sau 3 giây...'; Start-Sleep -Seconds 3`
+      `Start-Sleep -Seconds 1; Write-Host '${upgradingMsg}'; npm install -g @quangnv13/nonstop@latest; Write-Host '${completeMsg}'; Start-Sleep -Seconds 3`
     ];
 
     spawn(cmd, args, {
@@ -208,11 +215,11 @@ async function executeUpgrade(latestVersion: string, isVi: boolean): Promise<voi
     console.log(chalk.blue(isVi ? '  Đang chạy lệnh cài đặt...' : '  Running install command...'));
     try {
       execSync('npm install -g @quangnv13/nonstop@latest', { stdio: 'inherit' });
-      console.log(chalk.green(isVi ? '\n  ✓ Nâng cấp thành công! Vui lòng khởi động lại nonstop.' : '\n  ✓ Upgrade successful! Please restart nonstop.'));
+      console.log(chalk.green(isVi ? '\n  ✓ Nâng cấp nonstop thành công! Vui lòng khởi động lại nonstop.' : '\n  ✓ nonstop upgrade successful! Please restart nonstop.'));
       await pause(isVi ? 'vi' : 'en');
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red(isVi ? '\n  ❌ Lỗi nâng cấp: ' : '\n  ❌ Upgrade failed: '), error);
+      console.error(chalk.red(isVi ? '\n  ❌ Lỗi nâng cấp nonstop: ' : '\n  ❌ nonstop upgrade failed: '), error);
       await pause(isVi ? 'vi' : 'en');
     }
   }
@@ -462,6 +469,7 @@ async function editConfig(
     telegramUsername: await askWithDefault('TELEGRAM_USERNAME', config.telegramUsername),
     codexCmd: await askWithDefault('CODEX_CMD', config.codexCmd),
     antigravityCmd: await askWithDefault('ANTIGRAVITY_CMD', config.antigravityCmd),
+    claudeCmd: await askWithDefault('CLAUDE_CMD', config.claudeCmd),
     dangerousCommandConfirm: await askWithDefault('DANGEROUS_COMMAND_CONFIRM', config.dangerousCommandConfirm)
   };
 

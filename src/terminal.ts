@@ -74,7 +74,7 @@ export class NodePtyTerminalDriver implements TerminalDriver {
   }
 }
 
-export const SUPPORTED_PRESETS: SessionPreset[] = ['powershell', 'bash', 'codex', 'antigravity'];
+export const SUPPORTED_PRESETS: SessionPreset[] = ['powershell', 'bash', 'codex', 'antigravity', 'claude'];
 
 export function resolvePreset(presetName: SessionPreset): { command: string; args: string[] } {
   const isWindows = process.platform === 'win32';
@@ -110,6 +110,18 @@ export function resolvePreset(presetName: SessionPreset): { command: string; arg
           args = JSON.parse(process.env.ANTIGRAVITY_ARGS);
         } catch {
           args = process.env.ANTIGRAVITY_ARGS.split(/\s+/).filter(Boolean);
+        }
+      }
+      return { command, args };
+    }
+    case 'claude': {
+      const command = process.env.CLAUDE_CMD || 'claude';
+      let args: string[] = [];
+      if (process.env.CLAUDE_ARGS) {
+        try {
+          args = JSON.parse(process.env.CLAUDE_ARGS);
+        } catch {
+          args = process.env.CLAUDE_ARGS.split(/\s+/).filter(Boolean);
         }
       }
       return { command, args };

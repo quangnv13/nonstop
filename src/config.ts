@@ -18,6 +18,8 @@ export interface AppConfig {
   codexArgs: string;
   antigravityCmd: string;
   antigravityArgs: string;
+  claudeCmd: string;
+  claudeArgs: string;
   actionInterval: number;
   dangerousCommandConfirm: string;
 }
@@ -46,6 +48,8 @@ const DEFAULTS: AppConfig = {
   codexArgs: '[]',
   antigravityCmd: 'agy',
   antigravityArgs: '[]',
+  claudeCmd: 'claude',
+  claudeArgs: '[]',
   dangerousCommandConfirm: 'rm -rf /,rm -rf,rm -fr,sudo,del /s,rd /s,rmdir /s,format,shutdown,reboot,poweroff,init 0,dd if=,mkfs,fdisk'
 };
 
@@ -67,6 +71,8 @@ export function parseConfigFromEnv(env: Record<string, string | undefined>): App
     codexArgs: env.CODEX_ARGS?.trim() || DEFAULTS.codexArgs,
     antigravityCmd: env.ANTIGRAVITY_CMD?.trim() || DEFAULTS.antigravityCmd,
     antigravityArgs: env.ANTIGRAVITY_ARGS?.trim() || DEFAULTS.antigravityArgs,
+    claudeCmd: env.CLAUDE_CMD?.trim() || DEFAULTS.claudeCmd,
+    claudeArgs: env.CLAUDE_ARGS?.trim() || DEFAULTS.claudeArgs,
     actionInterval: parseInteger(env.ACTION_INTERVAL, DEFAULTS.actionInterval),
     dangerousCommandConfirm: env.DANGEROUS_COMMAND_CONFIRM !== undefined ? env.DANGEROUS_COMMAND_CONFIRM.trim() : DEFAULTS.dangerousCommandConfirm
   };
@@ -105,6 +111,8 @@ export function serializeConfigToEnv(config: AppConfig): string {
     `CODEX_ARGS=${config.codexArgs}`,
     `ANTIGRAVITY_CMD=${config.antigravityCmd}`,
     `ANTIGRAVITY_ARGS=${config.antigravityArgs}`,
+    `CLAUDE_CMD=${config.claudeCmd}`,
+    `CLAUDE_ARGS=${config.claudeArgs}`,
     ''
   ].join('\n');
 }
@@ -163,6 +171,8 @@ export function applyConfigToProcessEnv(config: AppConfig): void {
   process.env.CODEX_ARGS = config.codexArgs;
   process.env.ANTIGRAVITY_CMD = config.antigravityCmd;
   process.env.ANTIGRAVITY_ARGS = config.antigravityArgs;
+  process.env.CLAUDE_CMD = config.claudeCmd;
+  process.env.CLAUDE_ARGS = config.claudeArgs;
   process.env.DANGEROUS_COMMAND_CONFIRM = config.dangerousCommandConfirm;
 }
 

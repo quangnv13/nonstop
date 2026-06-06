@@ -695,7 +695,7 @@ function resolveKeyInput(key: string, preset: SessionPreset): string | null {
     case 'send_escape':
     case 'escape':
     case 'interrupt':
-      if (preset === 'codex' || preset === 'antigravity') {
+      if (preset === 'codex' || preset === 'antigravity' || preset === 'claude') {
         return '\u001b';
       }
       return null;

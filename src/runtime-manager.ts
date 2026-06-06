@@ -136,9 +136,9 @@ function promptUpgradeBackground(currentVersion: string, latestVersion: string, 
       ? `Có phiên bản mới của nonstop: ${latestVersion} (Hiện tại: ${currentVersion}). Bạn có muốn nâng cấp không? (y/n): `
       : `A new version of nonstop is available: ${latestVersion} (Current: ${currentVersion}). Do you want to upgrade? (y/n): `;
     const upgradingMsg = isVi ? 'Đang nâng cấp @quangnv13/nonstop lên phiên bản mới nhất...' : 'Upgrading @quangnv13/nonstop to the latest version...';
-    const successMsg = isVi ? 'Nâng cấp thành công! Nhấn phím bất kỳ để đóng...' : 'Upgrade successful! Press any key to close...';
-    const failMsg = isVi ? 'Nâng cấp thất bại.' : 'Upgrade failed.';
-    const skippedMsg = isVi ? 'Đã bỏ qua nâng cấp.' : 'Upgrade skipped.';
+    const successMsg = isVi ? 'Cập nhật nonstop thành công! Nhấn phím bất kỳ để đóng...' : 'nonstop update successful! Press any key to close...';
+    const failMsg = isVi ? 'Cập nhật nonstop thất bại.' : 'nonstop update failed.';
+    const skippedMsg = isVi ? 'Đã bỏ qua cập nhật nonstop.' : 'nonstop update skipped.';
 
     const psCommand = `
       $Host.UI.RawUI.WindowTitle = '${title}';
