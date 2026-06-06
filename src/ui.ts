@@ -167,55 +167,54 @@ export async function launchControlCenter(): Promise<void> {
   const isTTY = process.stdin.isTTY;
   const wasRaw = process.stdin.isRaw;
 
+  const rl = createInterface({ input, output });
+
   try {
     if (getMissingConfigFields(config).length > 0) {
-      config = await runSetupWizard(config);
+      config = await runSetupWizard(config, rl);
     }
 
-    const rl = createInterface({ input, output });
+    let lastSelection = 0;
+    while (true) {
+      config = loadConfigFromDisk();
+      const t = createTranslator(config.language);
+      const isRunning = getRuntimeStatus().running;
+      const isVi = config.language === 'vi';
+      const toggleLabel = isRunning
+        ? (isVi ? 'Tắt runtime nền' : 'Dừng background runtime')
+        : (isVi ? 'Bật runtime nền' : 'Chạy background runtime');
 
-    try {
-      let lastSelection = 0;
-      while (true) {
-        config = loadConfigFromDisk();
-        const t = createTranslator(config.language);
-        const isRunning = getRuntimeStatus().running;
-        const isVi = config.language === 'vi';
-        const toggleLabel = isRunning
-          ? (isVi ? 'Tắt runtime nền' : 'Dừng background runtime')
-          : (isVi ? 'Bật runtime nền' : 'Chạy background runtime');
+      const options = [
+        { label: toggleLabel, value: 'toggle' },
+        { label: t('menu.settings'), value: 'settings' },
+        { label: t('menu.workspaces'), value: 'workspaces' },
+        { label: t('menu.startup'), value: 'startup' },
+        { label: t('menu.language'), value: 'language' },
+        { label: t('menu.logs'), value: 'logs' },
+        { label: t('menu.exit'), value: 'exit' }
+      ];
 
-        const options = [
-          { label: toggleLabel, value: 'toggle' },
-          { label: t('menu.settings'), value: 'settings' },
-          { label: t('menu.workspaces'), value: 'workspaces' },
-          { label: t('menu.startup'), value: 'startup' },
-          { label: t('menu.language'), value: 'language' },
-          { label: t('menu.logs'), value: 'logs' },
-          { label: t('menu.exit'), value: 'exit' }
-        ];
+      rl.pause();
+      const choice = await runSelectionMenu(
+        () => renderDashboardHeader(config, getRuntimeStatus().snapshot),
+        options,
+        lastSelection
+      );
+      rl.resume();
 
-        const choice = await runSelectionMenu(
-          () => renderDashboardHeader(config, getRuntimeStatus().snapshot),
-          options,
-          lastSelection
-        );
+      lastSelection = options.findIndex(opt => opt.value === choice);
+      if (lastSelection < 0) lastSelection = 0;
 
-        lastSelection = options.findIndex(opt => opt.value === choice);
-        if (lastSelection < 0) lastSelection = 0;
-
-        if (choice === 'exit') break;
-        if (choice === 'toggle') { await handleToggleRuntime(config, rl); continue; }
-        if (choice === 'settings') { config = await editConfig(config, rl); continue; }
-        if (choice === 'workspaces') { await manageWorkspaces(rl, config.language); continue; }
-        if (choice === 'startup') { config = await configureStartup(config, rl); continue; }
-        if (choice === 'language') { config = await switchLanguage(config, rl); continue; }
-        if (choice === 'logs') { await showRecentLogs(rl); continue; }
-      }
-    } finally {
-      rl.close();
+      if (choice === 'exit') break;
+      if (choice === 'toggle') { await handleToggleRuntime(config, rl); continue; }
+      if (choice === 'settings') { config = await editConfig(config, rl); continue; }
+      if (choice === 'workspaces') { await manageWorkspaces(rl, config.language); continue; }
+      if (choice === 'startup') { config = await configureStartup(config, rl); continue; }
+      if (choice === 'language') { config = await switchLanguage(config, rl); continue; }
+      if (choice === 'logs') { await showRecentLogs(rl); continue; }
     }
   } finally {
+    rl.close();
     process.stdout.write('\u001b[?25h');
     if (isTTY) {
       try { process.stdin.setRawMode(wasRaw); } catch { /* ignore */ }
@@ -225,7 +224,11 @@ export async function launchControlCenter(): Promise<void> {
   }
 }
 
-async function runSetupWizard(currentConfig: AppConfig): Promise<AppConfig> {
+async function runSetupWizard(
+  currentConfig: AppConfig,
+  rl: ReturnType<typeof createInterface>
+): Promise<AppConfig> {
+  rl.pause();
   const language = await runSelectionMenu(
     () => {
       console.log(titleBox('Thiết lập nonstop'));
@@ -237,60 +240,51 @@ async function runSetupWizard(currentConfig: AppConfig): Promise<AppConfig> {
     ],
     currentConfig.language === 'en' ? 1 : 0
   );
+  rl.resume();
 
   const t = createTranslator(language);
-  const rl = createInterface({ input, output });
 
-  try {
-    clearScreen();
-    console.log(titleBox(t('wizard.title')));
-    console.log('');
+  clearScreen();
+  console.log(titleBox(t('wizard.title')));
+  console.log('');
 
-    const telegramBotToken = await askWithDefault(rl, t('wizard.token'), currentConfig.telegramBotToken);
-    const adminUsername = await askWithDefault(rl, t('wizard.admin'), currentConfig.adminUsername);
-    const clientName = await askWithDefault(rl, t('wizard.clientName'), currentConfig.clientName);
+  const telegramBotToken = await askWithDefault(rl, t('wizard.token'), currentConfig.telegramBotToken);
+  const adminUsername = await askWithDefault(rl, t('wizard.admin'), currentConfig.adminUsername);
+  const clientName = await askWithDefault(rl, t('wizard.clientName'), currentConfig.clientName);
 
-    rl.close();
-
-    const startupMode = await runSelectionMenu(
-      () => {
-        console.log(titleBox(t('wizard.title')));
-        console.log(chalk.gray(`  ${t('wizard.startupMode')}:`));
-      },
-      [
-        { label: `Tắt (disabled)`, value: 'disabled' as StartupMode },
-        { label: `Chạy nền (background)`, value: 'background' as StartupMode },
-        { label: `Mở giao diện (open-ui)`, value: 'open-ui' as StartupMode }
-      ],
-      0
-    );
-
-    const nextConfig: AppConfig = {
-      ...currentConfig,
-      language,
-      telegramBotToken,
-      adminUsername,
-      telegramUsername: adminUsername,
-      clientName,
-      startupMode
-    };
-
-    saveConfigToDisk(nextConfig);
-
-    const rl2 = createInterface({ input, output });
-    try {
-      clearScreen();
+  rl.pause();
+  const startupMode = await runSelectionMenu(
+    () => {
       console.log(titleBox(t('wizard.title')));
-      console.log(`\n${chalk.green(t('wizard.complete'))}`);
-      await pause(rl2);
-    } finally {
-      rl2.close();
-    }
+      console.log(chalk.gray(`  ${t('wizard.startupMode')}:`));
+    },
+    [
+      { label: `Tắt (disabled)`, value: 'disabled' as StartupMode },
+      { label: `Chạy nền (background)`, value: 'background' as StartupMode },
+      { label: `Mở giao diện (open-ui)`, value: 'open-ui' as StartupMode }
+    ],
+    0
+  );
+  rl.resume();
 
-    return nextConfig;
-  } finally {
-    try { rl.close(); } catch { /* already closed */ }
-  }
+  const nextConfig: AppConfig = {
+    ...currentConfig,
+    language,
+    telegramBotToken,
+    adminUsername,
+    telegramUsername: adminUsername,
+    clientName,
+    startupMode
+  };
+
+  saveConfigToDisk(nextConfig);
+
+  clearScreen();
+  console.log(titleBox(t('wizard.title')));
+  console.log(`\n${chalk.green(t('wizard.complete'))}`);
+  await pause(rl);
+
+  return nextConfig;
 }
 
 async function handleToggleRuntime(
@@ -366,6 +360,7 @@ async function manageWorkspaces(
       { label: isVi ? '← Quay lại menu chính' : '← Back', value: { type: 'back' } }
     ];
 
+    rl.pause();
     const selection = await runSelectionMenu(
       () => {
         console.log(titleBox(isVi ? 'Quản lý Workspace' : 'Manage Workspaces'));
@@ -373,6 +368,7 @@ async function manageWorkspaces(
       },
       options
     );
+    rl.resume();
 
     if (selection.type === 'back') return;
 
@@ -455,6 +451,7 @@ async function configureStartup(
 ): Promise<AppConfig> {
   const isVi = config.language === 'vi';
 
+  rl.pause();
   const nextMode = await runSelectionMenu(
     () => {
       console.log(titleBox(isVi ? 'Cấu hình khởi động' : 'Configure startup'));
@@ -467,6 +464,7 @@ async function configureStartup(
     ],
     ['disabled', 'background', 'open-ui'].indexOf(config.startupMode)
   );
+  rl.resume();
 
   const entryScriptPath = path.join(process.cwd(), 'dist', 'index.js');
   const result = applyStartupMode(nextMode, entryScriptPath, process.cwd());
@@ -484,6 +482,7 @@ async function switchLanguage(
   config: AppConfig,
   rl: ReturnType<typeof createInterface>
 ): Promise<AppConfig> {
+  rl.pause();
   const language = await runSelectionMenu(
     () => {
       console.log(titleBox('Đổi ngôn ngữ / Switch language'));
@@ -495,6 +494,7 @@ async function switchLanguage(
     ],
     config.language === 'en' ? 1 : 0
   );
+  rl.resume();
 
   const nextConfig = { ...config, language };
   saveConfigToDisk(nextConfig);
