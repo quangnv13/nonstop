@@ -1,0 +1,167 @@
+# 🚀 nonstop
+
+🌐 **Tiếng Việt** | [English](./README.md)
+
+<p align="center">
+  <img src="./images/nonstop.png" alt="nonstop Banner" width="800px" style="border-radius: 8px;" />
+</p>
+
+[![TypeScript](https://img.shields.io/badge/Language-TypeScript-blue.svg)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-brightgreen.svg)]()
+
+`nonstop` là trung tâm điều khiển terminal và tiến trình chạy ẩn cho môi trường PTY cục bộ được điều khiển qua Telegram. Dự án cung cấp giao diện CLI/TUI mạnh mẽ ở cấp root để quản lý hệ thống, tùy chỉnh cấu hình, lập bản đồ thư mục làm việc (workspaces), tích hợp khởi động cùng hệ điều hành, trong khi bot Telegram chạy ẩn thực thi và điều phối các phiên PTY (PowerShell, Bash, v.v.) một cách bảo mật.
+
+---
+
+## 🌟 Tính Năng Nổi Bật
+
+* **💻 Trung Tâm Điều Khiển TUI Trực Quan** — Quản lý các tiến trình runtime, kiểm tra nhật ký (logs), đăng ký thư mục làm việc và sửa đổi cấu hình trực tiếp từ giao diện terminal.
+* **🤖 Terminal PTY Qua Telegram** — Thực thi và điều khiển các phiên shell tương tác thời gian thực (PowerShell, Bash, Codex hoặc Antigravity) từ xa thông qua Telegram.
+* **⚙️ Trình Cấu Hình Động Trực Tiếp** — Thay đổi các tham số môi trường động thông qua menu `/config` bằng các phím inline Telegram hoặc trực tiếp trên CLI.
+* **📂 Quản Lý Workspace Linh Hoạt** — Điều hướng và chuyển đổi nhanh chóng giữa các thư mục làm việc khác nhau trên máy chủ cục bộ.
+* **🔄 Luồng Đầu Ra Được Tối Ưu Hóa** — Cơ chế gom cụm dữ liệu đầu ra thông minh với khoảng giãn cách (intervals) cấu hình được, giúp đảm bảo nhật ký terminal hiển thị mượt mà mà không vượt quá giới hạn API Telegram.
+* **🚀 Khởi Động Cùng Hệ Điều Hành** — Dễ dàng cấu hình để chạy như một dịch vụ nền khi hệ thống khởi động (hỗ trợ Windows và Linux).
+* **🌐 Hỗ Trợ Đa Ngôn Ngữ** — Bản dịch hoàn chỉnh cho tiếng Anh (`en`) và tiếng Việt (`vi`).
+* **🛡️ Bảo Mật Nghiêm Ngặt** — Xác thực token và kiểm tra quyền hạn chặt chẽ, chỉ cho phép tài khoản Admin đã cấu hình điều khiển hệ thống.
+
+---
+
+## ⚙️ Kiến Trúc & Luồng Dữ Liệu
+
+```mermaid
+graph TD
+    TelegramUser[📱 Telegram Client] <-->|Secure API Messages| TelegramServer[☁️ Telegram Bot API]
+    TelegramServer <-->|Grammy Framework| BotRuntime[🤖 Bot Runtime Process]
+    
+    subgraph Local Server Environment
+        BotRuntime <-->|node-pty| PTY[💻 PTY Session <br> PowerShell / Bash / Codex]
+        BotRuntime <-->|Manage / Query| RuntimeState[📁 data/ & .env]
+        
+        TUI[💻 Nonstop TUI Control Center] <-->|Read / Write| RuntimeState
+        TUI <-->|Control Daemon| BotRuntime
+    end
+```
+
+---
+
+## 🕹️ Hướng Dẫn Sử Dụng
+
+### 1. Trung Tâm Điều Khiển TUI Cục Bộ
+Chạy lệnh `npm start` (hoặc `npm run dev`) để mở giao diện quản lý trên terminal của bạn. Tại đây, bạn có thể:
+* **Khởi động / Dừng (Start / Stop)** bot chạy ẩn.
+* **Cấu hình Workspace**: Quản lý các thư mục mà phiên terminal được phép khởi chạy từ đó.
+* **Tự động khởi động (Autostart)**: Thiết lập ứng dụng tự chạy khi hệ thống khởi động.
+* **Xem logs**: Theo dõi nhật ký hoạt động của bot thời gian thực.
+
+### 2. Tương Tác Qua Telegram Bot
+Khi bot đang hoạt động, bạn có thể tương tác với nó thông qua các lệnh và nút nhấn sau:
+
+#### **📜 Các Lệnh Hệ Thống**
+* `/start` — Mở menu chính tương tác.
+* `/status` — Xem trạng thái hoạt động (số lượng workspace, các session đang chạy, preset).
+* `/config` — Chỉnh sửa các tham số ứng dụng một cách nhanh chóng.
+* `/send <lệnh>` — Gửi trực tiếp lệnh dạng văn bản thô tới phiên terminal hiện tại.
+* `/help` — Hiển thị hướng dẫn và các lệnh hỗ trợ.
+
+#### **⚡ Quản Lý Các Phiên Shell PTY**
+1. Chọn **⚡ Session** từ menu chính.
+2. Chọn một môi trường shell (ví dụ: **PowerShell**, **Bash**, **Codex**, hoặc **Antigravity**) để bắt đầu.
+3. Khi phiên hoạt động, hãy **bật Chế Độ Nhập (Input Mode)**.
+4. Bất kỳ tin nhắn văn bản thông thường nào bạn gửi tới bot (không bắt đầu bằng dấu `/`) sẽ được ghi thẳng vào phiên shell của bạn.
+5. Sử dụng các nút bấm trên bàn phím inline để gửi nhanh phím chức năng:
+   * **⛔ Esc** — Gửi phím Escape để hủy lệnh/tiến trình đang chạy.
+   * **⏎ Enter** — Gửi phím xuống dòng (chấp nhận lệnh).
+   * **▲ Up / ▼ Down** — Duyệt lại lịch sử các lệnh đã gõ.
+
+#### **📂 Thư Mục Làm Việc (Workspaces)**
+* Chọn **📁 Workspaces** từ menu chính để xem danh sách các thư mục được cấu hình trong `data/workspaces.json`.
+* Việc chọn một workspace sẽ đổi thư mục hiện tại của phiên PTY tiếp theo sang thư mục đó.
+
+#### **⚙️ Cấu Hình Hệ Thống Động**
+* Nhấn nút **⚙️ Cấu hình** hoặc gửi lệnh `/config`.
+* Nhấn vào bất kỳ trường cấu hình nào (ví dụ: *Token*, *Admin*, *Interval*, v.v.) và gửi giá trị mới thông qua tin nhắn để áp dụng ngay lập tức.
+* Khi thay đổi `Telegram Bot Token`, bot sẽ tự động tải lại cấu hình và khởi động lại một cách an toàn.
+
+---
+
+## 🛠️ Hướng Dẫn Cài Đặt
+
+### 1. Yêu Cầu Hệ Thống
+Hãy chắc chắn rằng máy tính của bạn đã cài đặt [Node.js](https://nodejs.org/) (v18+) và `npm`.
+
+### 2. Cài Đặt
+Tải mã nguồn và cài đặt các thư viện cần thiết:
+```bash
+git clone https://github.com/quangnv13/nonstop.git
+cd nonstop
+npm install
+```
+
+### 3. Biên Dịch Dự Án
+Biên dịch các tệp TypeScript sang mã JavaScript chạy chính thức:
+```bash
+npm run build
+```
+
+### 4. Khởi Chạy `nonstop`
+Khởi động giao diện trung tâm điều khiển TUI:
+```bash
+npm start
+```
+> [!NOTE]
+> Trong lần chạy đầu tiên, nếu tệp `.env` chưa tồn tại, `nonstop` sẽ tự động hiển thị **Trình hướng dẫn thiết lập (Setup Wizard)** để giúp bạn điền Token Telegram, tên người dùng Admin được phép truy cập, ngôn ngữ và cấu hình khởi động.
+
+Với chế độ phát triển (hỗ trợ hot-reload):
+```bash
+npm run dev
+```
+
+---
+
+## 📁 Cấu Trúc Dự Án
+
+```text
+nonstop/
+├── data/               # Lưu trữ dữ liệu (logs, workspaces.json, last-chat-id)
+├── src/                # Mã nguồn viết bằng TypeScript
+│   ├── bot.ts          # Xử lý bot Telegram & các callback query
+│   ├── config.ts       # Phân tích cấu hình, ghi tệp cấu hình & nạp biến môi trường
+│   ├── runtime.ts      # Quản lý shell session & tiến trình PTY
+│   ├── ui.ts           # Giao diện trung tâm điều khiển TUI
+│   └── index.ts        # Điểm khởi chạy ứng dụng
+├── dist/               # Mã JavaScript sau khi biên dịch
+├── .env                # Lưu trữ cấu hình môi trường cục bộ (được bỏ qua bởi git)
+└── package.json        # Định nghĩa dự án & các script chạy lệnh
+```
+
+---
+
+## 🎛️ Cấu Hình Ban Đầu
+
+Các cài đặt cấu hình nằm trong file `.env` tại thư mục gốc của dự án. Bạn có thể tạo từ tệp mẫu [`.env.example`](.env.example):
+
+```ini
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+ADMIN_USERNAME=@your_telegram_username
+TELEGRAM_USERNAME=@your_telegram_username
+CLIENT_NAME=nonstop-local
+APP_LANGUAGE=en
+STARTUP_MODE=disabled
+```
+
+---
+
+## 🛡️ Khuyến Nghị Bảo Mật
+
+> [!WARNING]
+> Do `nonstop` cung cấp quyền truy cập shell trực tiếp trên máy của bạn thông qua ứng dụng Telegram, hãy lưu ý các quy tắc bảo mật sau:
+>
+> 1. **Giữ Bí Mật Token Bot**: Tuyệt đối không commit tệp `.env` chứa token lên các kho lưu trữ công cộng.
+> 2. **Kiểm Tra Kỹ Tên Admin**: Đảm bảo `ADMIN_USERNAME` được điền đúng (bao gồm cả ký tự `@` ở đầu) để tránh kẻ xấu lợi dụng.
+> 3. **Chạy Với Quyền Hạn Hạn Chế**: Không nên chạy ứng dụng dưới các quyền quản trị cao nhất (như Administrator hoặc root) trừ khi thực sự cần thiết.
+
+---
+
+## 📄 Bản Quyền
+Dự án được cấp phép theo Giấy Phép MIT - xem chi tiết tại tệp [LICENSE](LICENSE).

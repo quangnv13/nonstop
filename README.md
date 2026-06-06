@@ -1,5 +1,11 @@
 # 🚀 nonstop
 
+🌐 [Tiếng Việt](./README.vi.md) | **English**
+
+<p align="center">
+  <img src="./images/nonstop.png" alt="nonstop Banner" width="800px" style="border-radius: 8px;" />
+</p>
+
 [![TypeScript](https://img.shields.io/badge/Language-TypeScript-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-brightgreen.svg)]()
@@ -39,6 +45,46 @@ graph TD
 
 ---
 
+## 🕹️ Usage Guide
+
+### 1. Local TUI Control Center
+Run `npm start` (or `npm run dev`) to open the terminal management dashboard. From here, you can:
+* **Start / Stop** the background bot runtime.
+* **Configure Workspaces**: Manage directories where terminal sessions can be started.
+* **Autostart Settings**: Set up the application to run automatically on system boot.
+* **View Logs**: Monitor bot logs and output in real time.
+
+### 2. Telegram Bot Interaction
+Once the bot runtime is active, you can interact with it via the following Telegram interface commands:
+
+#### **📜 Commands**
+* `/start` — Bring up the main interactive menu.
+* `/status` — View current runtime health (active workspaces, running sessions, presets).
+* `/config` — Edit application parameters dynamically.
+* `/send <command>` — Send raw input directly to the active session.
+* `/help` — Display bot commands and help text.
+
+#### **⚡ Managing PTY Shell Sessions**
+1. Select **⚡ Session** from the main menu.
+2. Select an environment preset (e.g., **PowerShell**, **Bash**, **Codex**, or **Antigravity**) to start a session.
+3. Once running, **enable Input Mode**.
+4. Any normal text message you send to the bot (without a leading `/`) will be fed directly into your shell.
+5. Use the inline control buttons to send key inputs:
+   * **⛔ Esc** — Send the Escape key to interrupt/cancel processes.
+   * **⏎ Enter** — Send a carriage return.
+   * **▲ Up / ▼ Down** — Navigate command history.
+
+#### **📂 Directory Workspaces**
+* Select **📁 Workspaces** from the main menu to view the folders configured in `data/workspaces.json`.
+* Selecting a workspace sets it as the working directory for your next PTY session.
+
+#### **⚙️ Dynamic Configuration**
+* Press **⚙️ Cấu hình** or send `/config`.
+* Tap any settings button (e.g. *Token*, *Admin*, *Interval*, etc.) and send a new value via message to apply immediately. 
+* If you modify the `Telegram Bot Token`, the bot will automatically reload and restart itself securely.
+
+---
+
 ## 🛠️ Quick Start
 
 ### 1. Prerequisites
@@ -58,7 +104,7 @@ Compile TypeScript to JavaScript production files:
 npm run build
 ```
 
-### 5. Run `nonstop`
+### 4. Run `nonstop`
 Launch the interactive terminal-based Control Center:
 ```bash
 npm start
@@ -103,25 +149,6 @@ CLIENT_NAME=nonstop-local
 APP_LANGUAGE=en
 STARTUP_MODE=disabled
 ```
-
-### 📱 Managing Config via Telegram
-You can easily update settings remotely. In the bot, run the `/config` command or choose **⚙️ Cấu hình / Settings** from the main menu. 
-
-You can dynamically adjust:
-* **Token** — Re-starts the bot automatically on token update
-* **Admin / Telegram Username** — Access control modifications
-* **Startup Mode** — Change startup behaviors (`disabled`, `background`, `open-ui`)
-* **Intervals & Limits** — Customize output speeds and line buffers
-
----
-
-## 📂 Workspace Management
-
-Workspaces let you register directories you frequently access. They are saved in `data/workspaces.json`. 
-
-You can configure them by:
-1. Using the **📁 Workspaces** option in the TUI console.
-2. Editing the JSON configuration file directly using [workspaces.json.template](data/workspaces.json.template) as a guideline.
 
 ---
 
