@@ -196,7 +196,10 @@ export class NonstopRuntime {
   }
 
   async flushSessionOutput(): Promise<void> {
-    await this.flushOutput(true, true);
+    this.triggerActionOutputTimeout();
+  }
+
+  private triggerActionOutputTimeout(): void {
     if (this.outputTicker) {
       clearInterval(this.outputTicker);
       this.outputTicker = null;
@@ -205,7 +208,11 @@ export class NonstopRuntime {
       clearTimeout(this.actionOutputTimeout);
       this.actionOutputTimeout = null;
     }
-    this.ensureOutputTicker();
+    this.actionOutputTimeout = setTimeout(async () => {
+      this.actionOutputTimeout = null;
+      await this.flushOutput(true, true);
+      this.ensureOutputTicker();
+    }, this.config.actionInterval);
   }
 
   async startSession(
@@ -303,6 +310,10 @@ export class NonstopRuntime {
     }
 
     driver.write(data);
+
+    if (data.includes('\r') || data.includes('\n')) {
+      this.triggerActionOutputTimeout();
+    }
   }
 
   sendSessionKey(key: string): void {
@@ -325,19 +336,7 @@ export class NonstopRuntime {
     driver.write(input);
 
     if (['send_escape', 'send_enter', 'send_up', 'send_down'].includes(key)) {
-      if (this.outputTicker) {
-        clearInterval(this.outputTicker);
-        this.outputTicker = null;
-      }
-      if (this.actionOutputTimeout) {
-        clearTimeout(this.actionOutputTimeout);
-        this.actionOutputTimeout = null;
-      }
-      this.actionOutputTimeout = setTimeout(async () => {
-        this.actionOutputTimeout = null;
-        await this.flushOutput(true);
-        this.ensureOutputTicker();
-      }, 5000);
+      this.triggerActionOutputTimeout();
     }
   }
 

@@ -18,6 +18,7 @@ export interface AppConfig {
   codexArgs: string;
   antigravityCmd: string;
   antigravityArgs: string;
+  actionInterval: number;
 }
 
 export type ConfigFieldKey =
@@ -36,6 +37,7 @@ const DEFAULTS: AppConfig = {
   language: 'en',
   startupMode: 'disabled',
   outputInterval: 20000,
+  actionInterval: 5000,
   maxOutputLines: 50,
   maxRenderLines: 200,
   codexCmd: 'codex',
@@ -61,7 +63,8 @@ export function parseConfigFromEnv(env: Record<string, string | undefined>): App
     codexCmd: env.CODEX_CMD?.trim() || DEFAULTS.codexCmd,
     codexArgs: env.CODEX_ARGS?.trim() || DEFAULTS.codexArgs,
     antigravityCmd: env.ANTIGRAVITY_CMD?.trim() || DEFAULTS.antigravityCmd,
-    antigravityArgs: env.ANTIGRAVITY_ARGS?.trim() || DEFAULTS.antigravityArgs
+    antigravityArgs: env.ANTIGRAVITY_ARGS?.trim() || DEFAULTS.antigravityArgs,
+    actionInterval: parseInteger(env.ACTION_INTERVAL, DEFAULTS.actionInterval)
   };
 }
 
@@ -88,6 +91,7 @@ export function serializeConfigToEnv(config: AppConfig): string {
     `APP_LANGUAGE=${config.language}`,
     `STARTUP_MODE=${config.startupMode}`,
     `OUTPUT_INTERVAL=${config.outputInterval}`,
+    `ACTION_INTERVAL=${config.actionInterval}`,
     `MAX_OUTPUT_LINES=${config.maxOutputLines}`,
     `MAX_RENDER_LINES=${config.maxRenderLines}`,
     '',
@@ -147,6 +151,7 @@ export function applyConfigToProcessEnv(config: AppConfig): void {
   process.env.APP_LANGUAGE = config.language;
   process.env.STARTUP_MODE = config.startupMode;
   process.env.OUTPUT_INTERVAL = String(config.outputInterval);
+  process.env.ACTION_INTERVAL = String(config.actionInterval);
   process.env.MAX_OUTPUT_LINES = String(config.maxOutputLines);
   process.env.MAX_RENDER_LINES = String(config.maxRenderLines);
   process.env.CODEX_CMD = config.codexCmd;
