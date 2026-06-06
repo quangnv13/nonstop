@@ -9,5 +9,5 @@ test('createTranslator returns vietnamese copy when requested', () => {
 
 test('createTranslator falls back to english for unknown key language mismatch', () => {
   const t = createTranslator('en');
-  assert.equal(t('dashboard.title'), 'nonstop control center');
+  assert.equal(t('dashboard.title'), 'nonstop client');
 });

@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as readline from 'node:readline';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import pc from 'picocolors';
 import {
   AppConfig,
   AppLanguage,
@@ -18,17 +19,6 @@ import { applyStartupMode } from './startup.js';
 import { loadWorkspaces, saveWorkspaces, createWorkspaceId } from './store.js';
 import { RuntimeStateSnapshot } from './runtime-state.js';
 import { Workspace } from './types.js';
-
-const COLORS = {
-  reset: '\u001b[0m',
-  cyan: '\u001b[36m',
-  blue: '\u001b[34m',
-  green: '\u001b[32m',
-  yellow: '\u001b[33m',
-  red: '\u001b[31m',
-  gray: '\u001b[90m',
-  bold: '\u001b[1m'
-};
 
 interface Option<T> {
   label: string;
@@ -68,10 +58,10 @@ async function runSelectionMenu<T>(
       headerRenderer();
       options.forEach((opt, idx) => {
         if (idx === selectedIndex) {
-          // Premium visually highlight: cyan arrow and bold cyan label
-          console.log(`  ${COLORS.cyan}➔ ${COLORS.bold}${COLORS.cyan}${opt.label}${COLORS.reset}`);
+          // Premium visually highlight: cyan chevron and bold cyan label
+          console.log(`  ${pc.cyan('❯')} ${pc.bold(pc.cyan(opt.label))}`);
         } else {
-          console.log(`     ${COLORS.gray}${opt.label}${COLORS.reset}`);
+          console.log(`    ${pc.gray(opt.label)}`);
         }
       });
     }
@@ -133,8 +123,13 @@ export async function launchControlCenter(): Promise<void> {
       let lastSelection = 0;
       while (true) {
         const t = createTranslator(config.language);
+        const isRunning = getRuntimeStatus().running;
+        const toggleLabel = config.language === 'vi'
+          ? (isRunning ? 'Tắt runtime nền' : 'Bật runtime nền')
+          : (isRunning ? 'Stop background runtime' : 'Start background runtime');
+
         const options = [
-          { label: t('menu.toggleRuntime'), value: 'toggle' },
+          { label: toggleLabel, value: 'toggle' },
           { label: t('menu.settings'), value: 'settings' },
           { label: t('menu.workspaces'), value: 'workspaces' },
           { label: t('menu.startup'), value: 'startup' },
@@ -210,7 +205,7 @@ async function runSetupWizard(currentConfig: AppConfig): Promise<AppConfig> {
   const language = await runSelectionMenu(
     () => {
       console.log(titleBlock('nonstop setup wizard'));
-      console.log(`${COLORS.gray}Choose language / Chon ngon ngu:${COLORS.reset}\n`);
+      console.log(`${pc.gray('Choose language / Chon ngon ngu:')}\n`);
     },
     languageOptions,
     currentConfig.language === 'vi' ? 1 : 0
@@ -238,7 +233,7 @@ async function runSetupWizard(currentConfig: AppConfig): Promise<AppConfig> {
     const startupMode = await runSelectionMenu(
       () => {
         console.log(titleBlock(t('wizard.title')));
-        console.log(`${COLORS.gray}${t('wizard.startupMode')}:${COLORS.reset}\n`);
+        console.log(`${pc.gray(t('wizard.startupMode') + ':')}\n`);
       },
       startupOptions,
       startupOptions.findIndex(opt => opt.value === currentConfig.startupMode) !== -1
@@ -263,7 +258,7 @@ async function runSetupWizard(currentConfig: AppConfig): Promise<AppConfig> {
     try {
       clearScreen();
       console.log(titleBlock(t('wizard.title')));
-      console.log(`\n${COLORS.green}${t('wizard.complete')}${COLORS.reset}`);
+      console.log(`\n${pc.green(t('wizard.complete'))}`);
       await pause(rl2);
     } finally {
       rl2.close();
@@ -275,34 +270,78 @@ async function runSetupWizard(currentConfig: AppConfig): Promise<AppConfig> {
   }
 }
 
+function formatBoxLine(
+  label: string,
+  value: string,
+  colorFn: (str: string) => string = (s) => s,
+  borderColor = pc.cyan
+): string {
+  const labelWidth = 10;
+  const interiorWidth = 60;
+  
+  // Format label to be 10 chars, left aligned
+  const paddedLabel = label.padEnd(labelWidth, ' ');
+  const colorizedLabel = pc.gray(paddedLabel);
+  
+  // Check if value fits. If it's too long, truncate it.
+  const maxValueLength = interiorWidth - labelWidth - 6; // 2 left spaces, 2 right spaces, ': ' is 2 chars
+  let displayValue = value;
+  if (displayValue.length > maxValueLength) {
+    displayValue = displayValue.slice(0, maxValueLength - 3) + '...';
+  }
+  
+  const colorizedValue = colorFn(displayValue);
+  
+  // We need to calculate how many spaces we need to pad the line.
+  // Visual length of left side = 2 (spaces) + labelWidth + 2 (': ') = 14.
+  // Visual length of value = displayValue.length.
+  // Total visual length = 14 + displayValue.length.
+  // Padding spaces at the end = interiorWidth - totalVisualLength - 2 (spaces on right)
+  const paddingRight = interiorWidth - 14 - displayValue.length - 2;
+  const rightSpaces = ' '.repeat(Math.max(0, paddingRight));
+  
+  return borderColor('│') + '  ' + colorizedLabel + pc.gray(': ') + colorizedValue + '  ' + rightSpaces + borderColor('│');
+}
+
 function renderDashboardHeader(config: AppConfig, snapshot: RuntimeStateSnapshot | null): void {
   const t = createTranslator(config.language);
   const runtimeStatus = snapshot ? t('dashboard.running') : t('dashboard.stopped');
-  const runtimeColor = snapshot ? COLORS.green : COLORS.red;
+  const runtimeColor = snapshot ? pc.green : pc.red;
   const started = snapshot?.startedAt || '-';
   const session = snapshot?.activeSession;
 
-  console.log(titleBlock(t('dashboard.title')));
-  console.log(`${COLORS.gray}Project:${COLORS.reset} ${COLORS.bold}nonstop${COLORS.reset}`);
-  console.log(
-    `${COLORS.gray}Runtime:${COLORS.reset} ${runtimeColor}${runtimeStatus}${COLORS.reset}    ${COLORS.gray}Mode:${COLORS.reset} ${snapshot?.mode || '-'}`
-  );
-  console.log(`${COLORS.gray}Client:${COLORS.reset} ${config.clientName}`);
-  console.log(`${COLORS.gray}Admin:${COLORS.reset} ${config.adminUsername || '-'}`);
-  console.log(`${COLORS.gray}Language:${COLORS.reset} ${config.language}`);
-  console.log(`${COLORS.gray}Startup:${COLORS.reset} ${config.startupMode}`);
-  console.log(`${COLORS.gray}Started:${COLORS.reset} ${started}`);
-  console.log(
-    `${COLORS.gray}Session:${COLORS.reset} ${
-      session ? `${session.preset} | ${session.cwd}` : '-'
-    }`
-  );
+  const interiorWidth = 60;
+  console.log(pc.cyan(`┌${'─'.repeat(interiorWidth)}┐`));
+  
+  // Title
+  const titleStr = t('dashboard.title');
+  const padLeft = Math.floor((interiorWidth - titleStr.length) / 2);
+  const padRight = interiorWidth - titleStr.length - padLeft;
+  console.log(pc.cyan('│') + ' '.repeat(padLeft) + pc.bold(pc.cyan(titleStr)) + ' '.repeat(padRight) + pc.cyan('│'));
+  
+  // Divider
+  console.log(pc.cyan(`├${'─'.repeat(interiorWidth)}┤`));
+  
+  // Fields
+  const statusStr = snapshot ? `${runtimeStatus} (${snapshot.mode || '-'})` : runtimeStatus;
+  console.log(formatBoxLine('Runtime', statusStr, runtimeColor));
+  console.log(formatBoxLine('Client', config.clientName, pc.white));
+  console.log(formatBoxLine('Admin', config.adminUsername || '-', pc.white));
+  console.log(formatBoxLine('Language', config.language, pc.white));
+  console.log(formatBoxLine('Startup', config.startupMode, pc.white));
+  console.log(formatBoxLine('Started', started, pc.white));
+  
+  const sessionStr = session ? `${session.preset} | ${session.cwd}` : '-';
+  console.log(formatBoxLine('Session', sessionStr, pc.white));
 
   if (snapshot?.lastError) {
-    console.log(`${COLORS.yellow}Last error:${COLORS.reset} ${snapshot.lastError}`);
+    console.log(formatBoxLine('Error', snapshot.lastError, pc.yellow));
   }
-
-  console.log(`\n${COLORS.blue}${t('dashboard.menu')}${COLORS.reset}`);
+  
+  // Bottom border
+  console.log(pc.cyan(`└${'─'.repeat(interiorWidth)}┘`));
+  
+  console.log(`\n${pc.bold(pc.blue(t('dashboard.menu')))}`);
 }
 
 async function handleToggleRuntime(
@@ -310,14 +349,21 @@ async function handleToggleRuntime(
   rl: ReturnType<typeof createInterface>
 ): Promise<void> {
   const status = getRuntimeStatus();
+  const targetState = !status.running;
   try {
     if (status.running) {
-      console.log(`\n${COLORS.yellow}${stopBackgroundRuntime(status.snapshot)}${COLORS.reset}`);
+      console.log(`\n${pc.yellow(stopBackgroundRuntime(status.snapshot))}`);
     } else {
-      console.log(`\n${COLORS.green}${startBackgroundRuntime()}${COLORS.reset}`);
+      console.log(`\n${pc.green(startBackgroundRuntime())}`);
+    }
+
+    // Polling loop to wait until status matches the target state
+    const startTime = Date.now();
+    while (getRuntimeStatus().running !== targetState && Date.now() - startTime < 1500) {
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
   } catch (error) {
-    console.log(`\n${COLORS.red}${error instanceof Error ? error.message : String(error)}${COLORS.reset}`);
+    console.log(`\n${pc.red(error instanceof Error ? error.message : String(error))}`);
   }
 
   await pause(rl);
@@ -341,8 +387,9 @@ async function editConfig(
   };
 
   saveConfigToDisk(nextConfig);
-  console.log(`\n${COLORS.green}${createTranslator(nextConfig.language)('settings.saved')}${COLORS.reset}`);
-  console.log(`${COLORS.gray}Restart background runtime if it is already running to apply all changes.${COLORS.reset}`);
+  const t = createTranslator(nextConfig.language);
+  console.log(`\n${pc.green(t('settings.saved'))}`);
+  console.log(pc.gray('Restart background runtime if it is already running to apply all changes.'));
   await pause(rl);
   return nextConfig;
 }
@@ -382,7 +429,7 @@ async function manageWorkspaces(
     const selection = await runSelectionMenu(
       () => {
         console.log(titleBlock(titleText));
-        console.log(`${COLORS.gray}${isVi ? 'Chon workspace de chinh sua/xoa hoac tao moi:' : 'Select a workspace to edit/delete or add new:'}${COLORS.reset}\n`);
+        console.log(`${pc.gray(isVi ? 'Chon workspace de chinh sua/xoa hoac tao moi:' : 'Select a workspace to edit/delete or add new:')}\n`);
       },
       options
     );
@@ -398,14 +445,14 @@ async function manageWorkspaces(
       const rawPath = (await rl.question(isVi ? 'Duong dan workspace: ' : 'Workspace path: ')).trim();
       
       if (!rawPath) {
-        console.log(`${COLORS.red}${isVi ? 'Duong dan khong the de trong.' : 'Path cannot be empty.'}${COLORS.reset}`);
+        console.log(`${pc.red(isVi ? 'Duong dan khong the de trong.' : 'Path cannot be empty.')}`);
         await pause(rl);
         continue;
       }
 
       const resolvedPath = path.resolve(rawPath);
       if (!fs.existsSync(resolvedPath)) {
-        console.log(`\n${COLORS.yellow}${isVi ? 'Canh bao' : 'Warning'}: ${isVi ? 'Duong dan khong ton tai tren dia' : 'Path does not exist on disk'}: "${resolvedPath}"${COLORS.reset}`);
+        console.log(`\n${pc.yellow(isVi ? 'Canh bao' : 'Warning')}: ${pc.gray(isVi ? 'Duong dan khong ton tai tren dia' : 'Path does not exist on disk')}: "${resolvedPath}"`);
       }
 
       workspaces.push({
@@ -414,7 +461,7 @@ async function manageWorkspaces(
         path: resolvedPath
       });
       saveWorkspaces(workspaces);
-      console.log(`\n${COLORS.green}${isVi ? 'Da them workspace.' : 'Workspace added.'}${COLORS.reset}`);
+      console.log(`\n${pc.green(isVi ? 'Da them workspace.' : 'Workspace added.')}`);
       await pause(rl);
       continue;
     }
@@ -432,8 +479,8 @@ async function manageWorkspaces(
       const action = await runSelectionMenu(
         () => {
           console.log(titleBlock(isVi ? 'Thao tac workspace' : 'Workspace Actions'));
-          console.log(`${COLORS.gray}${isVi ? 'Workspace dang chon:' : 'Selected Workspace:'}${COLORS.reset} ${COLORS.bold}${workspace.name}${COLORS.reset}`);
-          console.log(`${COLORS.gray}${isVi ? 'Duong dan:' : 'Path:'}${COLORS.reset} ${workspace.path}\n`);
+          console.log(`${pc.gray(isVi ? 'Workspace dang chon:' : 'Selected Workspace:')} ${pc.bold(workspace.name)}`);
+          console.log(`${pc.gray(isVi ? 'Duong dan:' : 'Path:')} ${workspace.path}\n`);
         },
         subOptions
       );
@@ -447,7 +494,7 @@ async function manageWorkspaces(
         saveWorkspaces(workspaces);
         clearScreen();
         console.log(titleBlock(isVi ? 'Xoa workspace' : 'Delete workspace'));
-        console.log(`\n${COLORS.green}${isVi ? 'Da xoa workspace.' : 'Workspace deleted.'}${COLORS.reset}`);
+        console.log(`\n${pc.green(isVi ? 'Da xoa workspace.' : 'Workspace deleted.')}`);
         await pause(rl);
         continue;
       }
@@ -460,7 +507,7 @@ async function manageWorkspaces(
         
         const resolvedPath = path.resolve(newPath.trim());
         if (!fs.existsSync(resolvedPath)) {
-          console.log(`\n${COLORS.yellow}${isVi ? 'Canh bao' : 'Warning'}: ${isVi ? 'Duong dan khong ton tai tren dia' : 'Path does not exist on disk'}: "${resolvedPath}"${COLORS.reset}`);
+          console.log(`\n${pc.yellow(isVi ? 'Canh bao' : 'Warning')}: ${pc.gray(isVi ? 'Duong dan khong ton tai tren dia' : 'Path does not exist on disk')}: "${resolvedPath}"`);
         }
 
         workspaces[idx] = {
@@ -469,7 +516,7 @@ async function manageWorkspaces(
           path: resolvedPath
         };
         saveWorkspaces(workspaces);
-        console.log(`\n${COLORS.green}${isVi ? 'Da cap nhat workspace.' : 'Workspace updated.'}${COLORS.reset}`);
+        console.log(`\n${pc.green(isVi ? 'Da cap nhat workspace.' : 'Workspace updated.')}`);
         await pause(rl);
         continue;
       }
@@ -497,7 +544,7 @@ async function configureStartup(
   const nextMode = await runSelectionMenu(
     () => {
       console.log(titleBlock(titleText));
-      console.log(`${COLORS.gray}Current startup mode:${COLORS.reset} ${config.startupMode}\n`);
+      console.log(`${pc.gray('Current startup mode:')} ${config.startupMode}\n`);
     },
     options,
     initialIndex
@@ -510,7 +557,7 @@ async function configureStartup(
 
   clearScreen();
   console.log(titleBlock(titleText));
-  console.log(`\n${COLORS.green}${result}${COLORS.reset}`);
+  console.log(`\n${pc.green(result)}`);
   await pause(rl);
   return nextConfig;
 }
@@ -533,7 +580,7 @@ async function switchLanguage(
   const language = await runSelectionMenu(
     () => {
       console.log(titleBlock(titleText));
-      console.log(`${COLORS.gray}Current language:${COLORS.reset} ${config.language}\n`);
+      console.log(`${pc.gray('Current language:')} ${config.language}\n`);
     },
     options,
     initialIndex
@@ -564,14 +611,21 @@ async function askWithDefault(
   label: string,
   currentValue: string
 ): Promise<string> {
-  const answer = await rl.question(`${label}${currentValue ? ` [${currentValue}]` : ''}: `);
+  const prompt = `${pc.bold(label)}${currentValue ? pc.gray(` [${currentValue}]`) : ''}: `;
+  const answer = await rl.question(prompt);
   return answer.trim() || currentValue;
 }
 
 function titleBlock(title: string): string {
-  return `${COLORS.bold}${COLORS.cyan}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ ${title.padEnd(58, ' ')}┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${COLORS.reset}`;
+  const interiorWidth = 60;
+  const padLeft = Math.floor((interiorWidth - title.length) / 2);
+  const padRight = interiorWidth - title.length - padLeft;
+  const titleLine = ' '.repeat(padLeft) + pc.bold(pc.cyan(title)) + ' '.repeat(padRight);
+  return (
+    pc.cyan(`┌${'─'.repeat(interiorWidth)}┐\n`) +
+    pc.cyan('│') + titleLine + pc.cyan('│\n') +
+    pc.cyan(`└${'─'.repeat(interiorWidth)}┘`)
+  );
 }
 
 function clearScreen(): void {
@@ -579,5 +633,6 @@ function clearScreen(): void {
 }
 
 async function pause(rl: ReturnType<typeof createInterface>): Promise<void> {
-  await rl.question('\nPress Enter to continue...');
+  await rl.question(`\n${pc.gray('Press Enter to continue...')}`);
 }
+
