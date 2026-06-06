@@ -52,6 +52,7 @@ export interface CreateBotRuntimeDependencies {
   sendKey: (key: string) => void;
   setInputMode: (inputMode: boolean) => void;
   setAutoEnter: (autoEnter: boolean) => void;
+  flushSessionOutput: () => Promise<void>;
 }
 
 export interface BotRuntime {
@@ -712,6 +713,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
         await showSessionsMenu(ctx);
         return;
       case 'refresh':
+        await deps.flushSessionOutput();
         break;
       default:
         await ctx.reply(t('bot.sessionControls.unsupportedAction', { action }));

@@ -131,7 +131,8 @@ export class NonstopRuntime {
       sendInput: (data) => this.sendSessionInput(data),
       sendKey: (key) => this.sendSessionKey(key),
       setInputMode: (inputMode) => this.setSessionInputMode(inputMode),
-      setAutoEnter: (autoEnter) => this.setSessionAutoEnter(autoEnter)
+      setAutoEnter: (autoEnter) => this.setSessionAutoEnter(autoEnter),
+      flushSessionOutput: () => this.flushSessionOutput()
     });
 
     this.setSessionOutputPushCallback(async (chatId, text, options) => {
@@ -192,6 +193,19 @@ export class NonstopRuntime {
       this.activeSession.autoEnter = autoEnter;
       this.writeHeartbeat();
     }
+  }
+
+  async flushSessionOutput(): Promise<void> {
+    await this.flushOutput(true, true);
+    if (this.outputTicker) {
+      clearInterval(this.outputTicker);
+      this.outputTicker = null;
+    }
+    if (this.actionOutputTimeout) {
+      clearTimeout(this.actionOutputTimeout);
+      this.actionOutputTimeout = null;
+    }
+    this.ensureOutputTicker();
   }
 
   async startSession(
@@ -398,7 +412,7 @@ export class NonstopRuntime {
     this.ensureOutputTicker();
   }
 
-  private async flushOutput(forceSnapshot = false): Promise<void> {
+  private async flushOutput(forceSnapshot = false, ignoreDuplicate = false): Promise<void> {
     const session = this.activeSession;
     if (!session) {
       this.outputBuffer.current = '';
@@ -425,7 +439,7 @@ export class NonstopRuntime {
       return;
     }
 
-    if (shouldSkipSessionOutput(session.lastSentFinalText, finalText)) {
+    if (!ignoreDuplicate && shouldSkipSessionOutput(session.lastSentFinalText, finalText)) {
       return;
     }
 
