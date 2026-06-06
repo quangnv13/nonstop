@@ -15,7 +15,7 @@ import {
   saveConfigToDisk
 } from './config.js';
 import { createTranslator } from './i18n.js';
-import { getRuntimeStatus, startBackgroundRuntime, stopBackgroundRuntime } from './runtime-manager.js';
+import { getRuntimeStatus, startBackgroundRuntime, stopBackgroundRuntime, getEntryScriptPath } from './runtime-manager.js';
 import { applyStartupMode } from './startup.js';
 import { loadWorkspaces, saveWorkspaces, createWorkspaceId } from './store.js';
 import { RuntimeStateSnapshot } from './runtime-state.js';
@@ -455,7 +455,7 @@ async function configureStartup(
     ['disabled', 'background', 'open-ui'].indexOf(config.startupMode)
   );
 
-  const entryScriptPath = path.join(process.cwd(), 'dist', 'index.js');
+  const entryScriptPath = getEntryScriptPath();
   const result = applyStartupMode(nextMode, entryScriptPath, process.cwd());
   const nextConfig = { ...config, startupMode: nextMode };
   saveConfigToDisk(nextConfig);

@@ -21,11 +21,29 @@ export function getRuntimeStatus(): RuntimeStatus {
   return { running: true, snapshot };
 }
 
-export function startBackgroundRuntime(): string {
-  const entryScriptPath = path.join(process.cwd(), 'dist', 'index.js');
-  if (!fs.existsSync(entryScriptPath)) {
-    throw new Error('dist/index.js not found. Run "npm run build" first.');
+export function getEntryScriptPath(): string {
+  // Try relative to __dirname (compiled location inside dist/)
+  const prodPath = path.join(__dirname, 'index.js');
+  if (fs.existsSync(prodPath)) {
+    return prodPath;
   }
+
+  // Try relative to process.cwd() (local dev environment)
+  const localDevPath = path.join(process.cwd(), 'dist', 'index.js');
+  if (fs.existsSync(localDevPath)) {
+    return localDevPath;
+  }
+
+  // Fallback to process.argv[1]
+  if (process.argv[1] && process.argv[1].endsWith('.js') && fs.existsSync(process.argv[1])) {
+    return process.argv[1];
+  }
+
+  throw new Error('dist/index.js not found. Please ensure the project is built.');
+}
+
+export function startBackgroundRuntime(): string {
+  const entryScriptPath = getEntryScriptPath();
 
   const child = spawn(process.execPath, [entryScriptPath, '--background'], {
     cwd: process.cwd(),
