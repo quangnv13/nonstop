@@ -1,8 +1,32 @@
 {
   "name": "nonstop",
   "version": "1.0.0",
-  "private": true,
   "description": "nonstop Telegram terminal control CLI",
+  "author": "quangnv13",
+  "license": "MIT",
+  "homepage": "https://github.com/quangnv13/nonstop#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quangnv13/nonstop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/quangnv13/nonstop/issues"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "pty",
+    "terminal",
+    "cli",
+    "tui",
+    "remote-control"
+  ],
+  "files": [
+    "dist",
+    "images",
+    "README.md",
+    "README.vi.md"
+  ],
   "bin": {
     "nonstop": "dist/index.js"
   },
