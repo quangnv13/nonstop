@@ -2,7 +2,7 @@ import { spawn, exec } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { loadRuntimeState, isPidRunning, RuntimeStateSnapshot } from './runtime-state.js';
+import { loadRuntimeState, isPidRunning, RuntimeStateSnapshot, saveShouldRunState } from './runtime-state.js';
 import { AppLanguage } from './config.js';
 
 export interface RuntimeStatus {
@@ -47,6 +47,8 @@ export function getEntryScriptPath(): string {
 export function startBackgroundRuntime(language?: AppLanguage): string {
   const entryScriptPath = getEntryScriptPath();
 
+  saveShouldRunState(true);
+
   const child = spawn(process.execPath, [entryScriptPath, '--background'], {
     cwd: process.cwd(),
     detached: true,
@@ -65,6 +67,8 @@ export function stopBackgroundRuntime(snapshot: RuntimeStateSnapshot | null, lan
   if (!snapshot || !isPidRunning(snapshot.pid)) {
     return isVi ? '⚠ Runtime nền không đang chạy.' : 'Background runtime is not running.';
   }
+
+  saveShouldRunState(false);
 
   try {
     process.kill(snapshot.pid);

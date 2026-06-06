@@ -4,7 +4,8 @@ import * as path from 'path';
 import { createBotRuntime, BotRuntime, loadLastChatId } from './bot.js';
 import { AppConfig, saveConfigToDisk, applyConfigToProcessEnv } from './config.js';
 import { logger } from './logger.js';
-import { RuntimeStateSnapshot, saveRuntimeState, clearRuntimeState } from './runtime-state.js';
+import { RuntimeStateSnapshot, saveRuntimeState, clearRuntimeState, getIpcSocketPath } from './runtime-state.js';
+import * as net from 'net';
 import { shouldSkipSessionOutput } from './session-delivery.js';
 import { buildSessionOutputMessages, SessionOutputMessage } from './session-output.js';
 import { loadWorkspaces, saveWorkspaces as persistWorkspaces } from './store.js';
@@ -45,6 +46,8 @@ export class NonstopRuntime {
   private heartbeatTicker: NodeJS.Timeout | null = null;
   private onSessionOutputPush: SessionOutputPushCallback | null = null;
   private bot: BotRuntime | null = null;
+  private ipcServer: net.Server | null = null;
+  private activeIpcSockets = new Set<net.Socket>();
 
   constructor(config: AppConfig, mode: 'background' | 'foreground') {
     this.config = config;
@@ -150,6 +153,7 @@ export class NonstopRuntime {
 
     // Ghi heartbeat TRƯỚC khi bot connect để UI polling nhận ngay trạng thái RUNNING
     this.startHeartbeat();
+    this.startIpcServer();
 
     await this.bot.start({
       onStart: async (botInfo) => {
@@ -187,6 +191,7 @@ export class NonstopRuntime {
       this.heartbeatTicker = null;
     }
 
+    this.stopIpcServer();
     clearRuntimeState();
   }
 
@@ -270,6 +275,7 @@ export class NonstopRuntime {
 
       driver.onData((chunk) => {
         this.bufferOutput(chunk);
+        this.broadcastToIpcClients({ type: 'output', data: chunk });
       });
 
       driver.onExit((code, signal) => {
@@ -417,6 +423,7 @@ export class NonstopRuntime {
 
     session.status = 'stopped';
     this.activeDriverRef.current = null;
+    this.broadcastToIpcClients({ type: 'exit', code });
 
     await this.flushOutput(true);
     this.resetOutputRuntime();
@@ -523,6 +530,129 @@ export class NonstopRuntime {
 
     if (this.activeSession) {
       this.activeSession.lastSentFinalText = '';
+    }
+  }
+
+  private startIpcServer(): void {
+    if (this.ipcServer) return;
+
+    const socketPath = getIpcSocketPath();
+
+    if (process.platform !== 'win32') {
+      try {
+        if (fs.existsSync(socketPath)) {
+          fs.unlinkSync(socketPath);
+        }
+      } catch (err) {
+        logger.error('Failed to unlink existing IPC socket file', { err });
+      }
+    }
+
+    this.ipcServer = net.createServer((socket) => {
+      logger.info('IPC client connected to background session');
+      this.activeIpcSockets.add(socket);
+
+      // Immediately send the current screen snapshot to the newly connected client
+      const snapshot = renderTerminalSnapshot(this.terminalState, this.config.maxRenderLines);
+      const initOutput = '\u001b[2J\u001b[H' + snapshot;
+      socket.write(JSON.stringify({ type: 'output', data: initOutput }) + '\n');
+
+      let buffer = '';
+      socket.on('data', (data) => {
+        buffer += data.toString();
+        let boundary = buffer.indexOf('\n');
+        while (boundary !== -1) {
+          const line = buffer.slice(0, boundary).trim();
+          buffer = buffer.slice(boundary + 1);
+          if (line) {
+            try {
+              const msg = JSON.parse(line);
+              this.handleIpcClientMessage(msg);
+            } catch (err) {
+              logger.error('Error parsing IPC client message', { err, line });
+            }
+          }
+          boundary = buffer.indexOf('\n');
+        }
+      });
+
+      socket.on('error', (err) => {
+        logger.error('IPC client socket error', { err });
+      });
+
+      socket.on('close', () => {
+        logger.info('IPC client disconnected');
+        this.activeIpcSockets.delete(socket);
+      });
+    });
+
+    this.ipcServer.listen(socketPath, () => {
+      logger.info(`IPC Server listening on ${socketPath}`);
+    });
+
+    this.ipcServer.on('error', (err) => {
+      logger.error('IPC Server error', { err });
+    });
+  }
+
+  private handleIpcClientMessage(msg: any): void {
+    if (!msg || typeof msg !== 'object') return;
+    
+    switch (msg.type) {
+      case 'input':
+        if (typeof msg.data === 'string') {
+          this.sendSessionInput(msg.data);
+        }
+        break;
+      case 'resize':
+        if (typeof msg.cols === 'number' && typeof msg.rows === 'number') {
+          const driver = this.activeDriverRef.current;
+          if (driver && this.activeSession?.status === 'running') {
+            driver.resize(msg.cols, msg.rows);
+          }
+        }
+        break;
+      default:
+        logger.warn('Unknown IPC message type', { msg });
+    }
+  }
+
+  private stopIpcServer(): void {
+    if (this.ipcServer) {
+      for (const socket of this.activeIpcSockets) {
+        try {
+          socket.destroy();
+        } catch {
+          // ignore
+        }
+      }
+      this.activeIpcSockets.clear();
+
+      this.ipcServer.close();
+      this.ipcServer = null;
+
+      const socketPath = getIpcSocketPath();
+      if (process.platform !== 'win32') {
+        try {
+          if (fs.existsSync(socketPath)) {
+            fs.unlinkSync(socketPath);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+
+  private broadcastToIpcClients(msg: any): void {
+    if (this.activeIpcSockets.size === 0) return;
+    const packet = JSON.stringify(msg) + '\n';
+    for (const socket of this.activeIpcSockets) {
+      try {
+        socket.write(packet);
+      } catch (err) {
+        logger.error('Failed to write to IPC client socket', { err });
+      }
     }
   }
 }

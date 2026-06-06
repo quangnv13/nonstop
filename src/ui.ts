@@ -20,7 +20,8 @@ import { createTranslator } from './i18n.js';
 import { getRuntimeStatus, startBackgroundRuntime, stopBackgroundRuntime, getEntryScriptPath, getCurrentVersion, checkForUpdate } from './runtime-manager.js';
 import { applyStartupMode } from './startup.js';
 import { loadWorkspaces, saveWorkspaces, createWorkspaceId } from './store.js';
-import { RuntimeStateSnapshot } from './runtime-state.js';
+import { RuntimeStateSnapshot, getIpcSocketPath } from './runtime-state.js';
+import * as net from 'net';
 import { Workspace } from './types.js';
 import { resolvePreset } from './terminal.js';
 

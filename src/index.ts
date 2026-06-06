@@ -8,7 +8,8 @@ import {
 import { logger } from './logger.js';
 import { NonstopRuntime } from './runtime.js';
 import { launchControlCenter } from './ui.js';
-import { getRuntimeStatus, stopBackgroundRuntime, checkUpdateOnStartup } from './runtime-manager.js';
+import { getRuntimeStatus, stopBackgroundRuntime, checkUpdateOnStartup, startBackgroundRuntime } from './runtime-manager.js';
+import { saveShouldRunState, loadShouldRunState } from './runtime-state.js';
 
 async function main(): Promise<void> {
   ensureEnvExampleFile();
@@ -21,6 +22,7 @@ async function main(): Promise<void> {
   applyConfigToProcessEnv(config);
 
   if (isStop) {
+    saveShouldRunState(false);
     const status = getRuntimeStatus();
     if (status.running && status.snapshot) {
       try {
@@ -47,6 +49,8 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       return;
     }
+
+    saveShouldRunState(true);
 
     void checkUpdateOnStartup(true, config.language);
 
@@ -78,6 +82,22 @@ async function main(): Promise<void> {
     });
 
     return;
+  }
+
+  // Auto-restart if it was running but is not currently running (e.g. after system restart)
+  const status = getRuntimeStatus();
+  if (!status.running && loadShouldRunState()) {
+    console.log(config.language === 'vi'
+      ? '↻ Phát hiện trạng thái trước đó đang chạy. Đang tự khởi động lại runtime nền...'
+      : '↻ Detected previous running state. Auto-restarting background runtime...');
+    try {
+      const msg = startBackgroundRuntime(config.language);
+      console.log(msg);
+      // Chờ một chút để tiến trình nền khởi động và ghi state/heartbeat
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+    }
   }
 
   await launchControlCenter();
