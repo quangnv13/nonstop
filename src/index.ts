@@ -8,15 +8,33 @@ import {
 import { logger } from './logger.js';
 import { NonstopRuntime } from './runtime.js';
 import { launchControlCenter } from './ui.js';
+import { getRuntimeStatus, stopBackgroundRuntime } from './runtime-manager.js';
 
 async function main(): Promise<void> {
   ensureEnvExampleFile();
 
   const args = new Set(process.argv.slice(2));
   const isBackground = args.has('--background');
+  const isStop = args.has('--stop');
 
   const config = loadConfigFromDisk();
   applyConfigToProcessEnv(config);
+
+  if (isStop) {
+    const status = getRuntimeStatus();
+    if (status.running && status.snapshot) {
+      try {
+        const msg = stopBackgroundRuntime(status.snapshot);
+        console.log(msg);
+      } catch (error) {
+        console.error(error instanceof Error ? error.message : String(error));
+        process.exitCode = 1;
+      }
+    } else {
+      console.log('nonstop background runtime is not running.');
+    }
+    return;
+  }
 
   if (isBackground) {
     const missingFields = getMissingConfigFields(config);

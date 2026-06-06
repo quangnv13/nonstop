@@ -1,6 +1,6 @@
 {
   "name": "@quangnv13/nonstop",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "preferGlobal": true,
   "publishConfig": {
     "access": "public"
@@ -41,7 +41,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "node --import tsx --test src/*.test.ts",
-    "preinstall": "node scripts/preinstall.js"
+    "preinstall": "node scripts/preinstall.js",
+    "preuninstall": "node scripts/preinstall.js"
   },
   "dependencies": {
     "boxen": "^5.1.2",
