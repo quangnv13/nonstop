@@ -167,11 +167,15 @@ export async function launchControlCenter(): Promise<void> {
   const isTTY = process.stdin.isTTY;
   const wasRaw = process.stdin.isRaw;
 
-  const rl = createInterface({ input, output });
+  let rl: ReturnType<typeof createInterface> | undefined;
 
   try {
     if (getMissingConfigFields(config).length > 0) {
-      config = await runSetupWizard(config, rl);
+      const result = await runSetupWizard(config);
+      config = result.config;
+      rl = result.rl;
+    } else {
+      rl = createInterface({ input, output });
     }
 
     let lastSelection = 0;
@@ -214,7 +218,9 @@ export async function launchControlCenter(): Promise<void> {
       if (choice === 'logs') { await showRecentLogs(rl); continue; }
     }
   } finally {
-    rl.close();
+    if (rl) {
+      try { rl.close(); } catch { /* ignore */ }
+    }
     process.stdout.write('\u001b[?25h');
     if (isTTY) {
       try { process.stdin.setRawMode(wasRaw); } catch { /* ignore */ }
@@ -225,10 +231,8 @@ export async function launchControlCenter(): Promise<void> {
 }
 
 async function runSetupWizard(
-  currentConfig: AppConfig,
-  rl: ReturnType<typeof createInterface>
-): Promise<AppConfig> {
-  rl.pause();
+  currentConfig: AppConfig
+): Promise<{ config: AppConfig; rl: ReturnType<typeof createInterface> }> {
   const language = await runSelectionMenu(
     () => {
       console.log(titleBox('Thiết lập nonstop'));
@@ -240,51 +244,56 @@ async function runSetupWizard(
     ],
     currentConfig.language === 'en' ? 1 : 0
   );
-  rl.resume();
 
   const t = createTranslator(language);
+  const rl = createInterface({ input, output });
 
-  clearScreen();
-  console.log(titleBox(t('wizard.title')));
-  console.log('');
+  try {
+    clearScreen();
+    console.log(titleBox(t('wizard.title')));
+    console.log('');
 
-  const telegramBotToken = await askWithDefault(rl, t('wizard.token'), currentConfig.telegramBotToken);
-  const adminUsername = await askWithDefault(rl, t('wizard.admin'), currentConfig.adminUsername);
-  const clientName = await askWithDefault(rl, t('wizard.clientName'), currentConfig.clientName);
+    const telegramBotToken = await askWithDefault(rl, t('wizard.token'), currentConfig.telegramBotToken);
+    const adminUsername = await askWithDefault(rl, t('wizard.admin'), currentConfig.adminUsername);
+    const clientName = await askWithDefault(rl, t('wizard.clientName'), currentConfig.clientName);
 
-  rl.pause();
-  const startupMode = await runSelectionMenu(
-    () => {
-      console.log(titleBox(t('wizard.title')));
-      console.log(chalk.gray(`  ${t('wizard.startupMode')}:`));
-    },
-    [
-      { label: `Tắt (disabled)`, value: 'disabled' as StartupMode },
-      { label: `Chạy nền (background)`, value: 'background' as StartupMode },
-      { label: `Mở giao diện (open-ui)`, value: 'open-ui' as StartupMode }
-    ],
-    0
-  );
-  rl.resume();
+    rl.pause();
+    const startupMode = await runSelectionMenu(
+      () => {
+        console.log(titleBox(t('wizard.title')));
+        console.log(chalk.gray(`  ${t('wizard.startupMode')}:`));
+      },
+      [
+        { label: `Tắt (disabled)`, value: 'disabled' as StartupMode },
+        { label: `Chạy nền (background)`, value: 'background' as StartupMode },
+        { label: `Mở giao diện (open-ui)`, value: 'open-ui' as StartupMode }
+      ],
+      0
+    );
+    rl.resume();
 
-  const nextConfig: AppConfig = {
-    ...currentConfig,
-    language,
-    telegramBotToken,
-    adminUsername,
-    telegramUsername: adminUsername,
-    clientName,
-    startupMode
-  };
+    const nextConfig: AppConfig = {
+      ...currentConfig,
+      language,
+      telegramBotToken,
+      adminUsername,
+      telegramUsername: adminUsername,
+      clientName,
+      startupMode
+    };
 
-  saveConfigToDisk(nextConfig);
+    saveConfigToDisk(nextConfig);
 
-  clearScreen();
-  console.log(titleBox(t('wizard.title')));
-  console.log(`\n${chalk.green(t('wizard.complete'))}`);
-  await pause(rl);
+    clearScreen();
+    console.log(titleBox(t('wizard.title')));
+    console.log(`\n${chalk.green(t('wizard.complete'))}`);
+    await pause(rl);
 
-  return nextConfig;
+    return { config: nextConfig, rl };
+  } catch (error) {
+    try { rl.close(); } catch { /* ignore */ }
+    throw error;
+  }
 }
 
 async function handleToggleRuntime(
