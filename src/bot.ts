@@ -6,6 +6,7 @@ import { SessionOutputMessage } from './session-output.js';
 import { ActiveSessionState, SessionPreset, Workspace, WorkspaceDraft } from './types.js';
 import { createWorkspaceId } from './store.js';
 import { AppConfig, StartupMode } from './config.js';
+import { createTranslator } from './i18n.js';
 
 const grammyRequire: NodeRequire = require;
 const { Bot, InlineKeyboard } = grammyRequire('grammy') as GrammyModule;
@@ -99,6 +100,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
 
   const bot = new Bot(token);
   const chatStates = new Map<number, ChatState>();
+  const getT = () => createTranslator(deps.getConfig().language);
 
   function getChatState(chatId: number): ChatState {
     const existing = chatStates.get(chatId);
@@ -146,23 +148,25 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
 
   function buildMainMenuText(): string {
     const activeSession = deps.getActiveSession();
+    const t = getT();
     return [
       '🖥  nonstop client',
       '',
       `📁 Workspaces: ${deps.getWorkspaces().length}`,
       activeSession
-        ? `⚡ Session: ${activeSession.preset} | ${activeSession.cwd}`
-        : '⚡ Session: không có'
+        ? t('bot.menu.activeSessionRunning', { preset: activeSession.preset, cwd: activeSession.cwd })
+        : t('bot.menu.activeSessionNone')
     ].join('\n');
   }
 
   function buildMainMenuKeyboard(): unknown {
+    const t = getT();
     return createKeyboard()
-      .text('📁 Workspaces', 'workspaces_list')
-      .text('⚡ Session', 'sessions_list')
+      .text(t('bot.menu.workspaces'), 'workspaces_list')
+      .text(t('bot.menu.session'), 'sessions_list')
       .row()
-      .text('⚙️ Cấu hình', 'config_menu')
-      .text('ℹ️ Trợ giúp', 'help_view');
+      .text(t('bot.menu.config'), 'config_menu')
+      .text(t('bot.menu.help'), 'help_view');
   }
 
   async function showMainMenu(ctx: BotContext): Promise<void> {
@@ -170,20 +174,21 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
   }
 
   async function showHelp(ctx: BotContext): Promise<void> {
+    const t = getT();
     await renderText(
       ctx,
       [
-        '📖 Lệnh có sẵn',
+        t('bot.help.title'),
         '',
-        '/start — Mở menu chính',
-        '/status — Trạng thái runtime',
-        '/help — Trợ giúp',
-        '/config — Cấu hình hệ thống',
-        '/send <lệnh> — Gửi lệnh thô tới session',
+        t('bot.help.start'),
+        t('bot.help.status'),
+        t('bot.help.help'),
+        t('bot.help.config'),
+        t('bot.help.send'),
         '',
-        'Khi input mode BẬT, tin nhắn thường sẽ được gửi thẳng vào session.'
+        t('bot.help.inputModeNotice')
       ].join('\n'),
-      createKeyboard().text('⬅️ Quay lại', 'main_menu')
+      createKeyboard().text(t('bot.general.back'), 'main_menu')
     );
   }
 
@@ -192,32 +197,35 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     const currentAllowedUsername = normalizeUsername(
       process.env.ADMIN_USERNAME || process.env.TELEGRAM_USERNAME || ''
     );
+    const t = getT();
     await renderText(
       ctx,
       [
-        '📊 Trạng thái Runtime',
+        t('bot.status.title'),
         '',
-        `Người dùng: ${currentAllowedUsername || 'không giới hạn'}`,
-        `Workspaces: ${deps.getWorkspaces().length}`,
-        `Session: ${activeSession ? 'đang chạy' : 'không có'}`,
-        activeSession ? `Preset: ${activeSession.preset}` : '',
-        activeSession ? `Thư mục: ${activeSession.cwd}` : ''
+        `${t('bot.status.user')}: ${currentAllowedUsername || t('bot.status.unlimited')}`,
+        `${t('bot.status.workspaces')}: ${deps.getWorkspaces().length}`,
+        `${t('bot.status.session')}: ${activeSession ? t('bot.status.running') : t('bot.status.none')}`,
+        activeSession ? `${t('bot.status.preset')}: ${activeSession.preset}` : '',
+        activeSession ? `${t('bot.status.directory')}: ${activeSession.cwd}` : ''
       ].filter(Boolean).join('\n'),
-      createKeyboard().text('⬅️ Quay lại', 'main_menu')
+      createKeyboard().text(t('bot.general.back'), 'main_menu')
     );
   }
 
   async function showConfigMenu(ctx: BotContext): Promise<void> {
     const config = deps.getConfig();
+    const t = getT();
+    const notConfigured = t('bot.config.notConfigured');
     const lines = [
-      '⚙️ Cấu hình nonstop',
+      t('bot.config.title'),
       '',
-      `• Token: ${config.telegramBotToken ? '••••' + config.telegramBotToken.slice(-4) : 'Chưa cấu hình'}`,
-      `• Admin Username: ${config.adminUsername || 'Chưa cấu hình'}`,
-      `• Client Name: ${config.clientName || 'Chưa cấu hình'}`,
-      `• Telegram Username: ${config.telegramUsername || 'Chưa cấu hình'}`,
-      `• Ngôn ngữ: ${config.language} (vi/en)`,
-      `• Chế độ khởi động: ${config.startupMode} (disabled/background/open-ui)`,
+      `• Token: ${config.telegramBotToken ? '••••' + config.telegramBotToken.slice(-4) : notConfigured}`,
+      `• Admin Username: ${config.adminUsername || notConfigured}`,
+      `• Client Name: ${config.clientName || notConfigured}`,
+      `• Telegram Username: ${config.telegramUsername || notConfigured}`,
+      `• ${t('bot.config.languageLabel')}: ${config.language} (vi/en)`,
+      `• ${t('bot.config.startupLabel')}: ${config.startupMode} (disabled/background/open-ui)`,
       `• Output Interval: ${config.outputInterval} ms`,
       `• Max Output Lines: ${config.maxOutputLines}`,
       `• Max Render Lines: ${config.maxRenderLines}`,
@@ -234,8 +242,8 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       .text('Client Name', 'config_edit:clientName')
       .text('Telegram User', 'config_edit:telegramUsername')
       .row()
-      .text(`Ngôn ngữ (${config.language === 'vi' ? '🇻🇳 vi' : '🇬🇧 en'})`, 'config_edit:language')
-      .text(`Khởi động (${config.startupMode})`, 'config_edit:startupMode')
+      .text(`${t('bot.config.languageLabel')} (${config.language === 'vi' ? '🇻🇳 vi' : '🇬🇧 en'})`, 'config_edit:language')
+      .text(`${t('bot.config.startupLabel')} (${config.startupMode})`, 'config_edit:startupMode')
       .row()
       .text('Interval', 'config_edit:outputInterval')
       .text('Max Output Lines', 'config_edit:maxOutputLines')
@@ -248,18 +256,19 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       .row()
       .text('Antigravity Args', 'config_edit:antigravityArgs')
       .row()
-      .text('⬅️ Quay lại', 'main_menu');
+      .text(t('bot.general.back'), 'main_menu');
 
     await renderText(ctx, lines.join('\n'), keyboard);
   }
 
   async function showWorkspacesMenu(ctx: BotContext): Promise<void> {
     const workspaces = deps.getWorkspaces();
-    const lines = ['📁 Danh sách Workspace', ''];
+    const t = getT();
+    const lines = [t('bot.workspaces.title'), ''];
     const keyboard = createKeyboard();
 
     if (workspaces.length === 0) {
-      lines.push('Chưa có workspace nào.');
+      lines.push(t('bot.workspaces.empty'));
     } else {
       for (const ws of workspaces) {
         lines.push(`• ${ws.name}`);
@@ -268,16 +277,17 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       }
     }
 
-    keyboard.text('➕ Thêm workspace', 'workspace_action:add').row().text('⬅️ Quay lại', 'main_menu');
+    keyboard.text(t('bot.workspaces.add'), 'workspace_action:add').row().text(t('bot.general.back'), 'main_menu');
     await renderText(ctx, lines.join('\n'), keyboard);
   }
 
   function buildWorkspaceDetailsKeyboard(workspace: Workspace): unknown {
+    const t = getT();
     return createKeyboard()
-      .text('✏️ Sửa tên', `workspace_action:edit_name:${workspace.id}`)
-      .text('🛠️ Sửa đường dẫn', `workspace_action:edit_path:${workspace.id}`)
+      .text(t('bot.workspaces.editName'), `workspace_action:edit_name:${workspace.id}`)
+      .text(t('bot.workspaces.editPath'), `workspace_action:edit_path:${workspace.id}`)
       .row()
-      .text('🗑️ Xóa', `workspace_action:delete:${workspace.id}`)
+      .text(t('bot.workspaces.delete'), `workspace_action:delete:${workspace.id}`)
       .row()
       .text('Powershell', `start_session:${workspace.id}:powershell`)
       .text('Bash', `start_session:${workspace.id}:bash`)
@@ -285,18 +295,19 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       .text('Codex', `start_session:${workspace.id}:codex`)
       .text('Antigravity', `start_session:${workspace.id}:antigravity`)
       .row()
-      .text('⬅️ Quay lại', 'workspaces_list');
+      .text(t('bot.general.back'), 'workspaces_list');
   }
 
   async function showWorkspaceDetails(ctx: BotContext, workspaceId: string): Promise<void> {
     const workspace = getWorkspaceById(workspaceId);
+    const t = getT();
     if (!workspace) {
-      await renderText(ctx, 'Workspace không tìm thấy.', createKeyboard().text('⬅️ Quay lại', 'workspaces_list'));
+      await renderText(ctx, t('bot.workspaces.notFound'), createKeyboard().text(t('bot.general.back'), 'workspaces_list'));
       return;
     }
     await renderText(
       ctx,
-      ['📁 Chi tiết Workspace', '', `Tên: ${workspace.name}`, `Đường dẫn: ${workspace.path}`].join('\n'),
+      [t('bot.workspaces.detailsTitle'), '', `${t('bot.workspaces.detailsName')}: ${workspace.name}`, `${t('bot.workspaces.detailsPath')}: ${workspace.path}`].join('\n'),
       buildWorkspaceDetailsKeyboard(workspace)
     );
   }
@@ -304,25 +315,27 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
   async function showSessionsMenu(ctx: BotContext): Promise<void> {
     const activeSession = deps.getActiveSession();
     const keyboard = createKeyboard();
-    const lines = ['⚡ Session', ''];
+    const t = getT();
+    const lines = [t('bot.sessions.title'), ''];
 
     if (!activeSession || activeSession.status !== 'running') {
-      lines.push('Không có session đang chạy.');
+      lines.push(t('bot.sessions.empty'));
     } else {
       lines.push(`ID: ${activeSession.sessionId}`);
       lines.push(`Preset: ${activeSession.preset}`);
-      lines.push(`Thư mục: ${activeSession.cwd}`);
-      keyboard.text('🎮 Điều khiển', `view_session:${activeSession.sessionId}`).row();
+      lines.push(`${t('bot.sessionDetails.directory')}: ${activeSession.cwd}`);
+      keyboard.text(t('bot.sessions.control'), `view_session:${activeSession.sessionId}`).row();
     }
 
-    keyboard.text('⬅️ Quay lại', 'main_menu');
+    keyboard.text(t('bot.general.back'), 'main_menu');
     await renderText(ctx, lines.join('\n'), keyboard);
   }
 
   async function showSessionDetails(ctx: BotContext, sessionId?: string): Promise<void> {
     const session = deps.getActiveSession();
+    const t = getT();
     if (!session || session.status !== 'running' || (sessionId && session.sessionId !== sessionId)) {
-      await renderText(ctx, 'Session không đang chạy.', createKeyboard().text('⬅️ Quay lại', 'main_menu'));
+      await renderText(ctx, t('bot.sessionDetails.notRunning'), createKeyboard().text(t('bot.general.back'), 'main_menu'));
       return;
     }
 
@@ -330,20 +343,24 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       sessionId: session.sessionId,
       inputMode: session.inputMode,
       autoEnter: session.autoEnter,
-      includeBackButton: true
+      includeBackButton: true,
+      language: deps.getConfig().language
     });
+
+    const onText = t('bot.sessionDetails.on');
+    const offText = t('bot.sessionDetails.off');
 
     await renderText(
       ctx,
       [
-        '🎮 Điều khiển Session',
+        t('bot.sessionDetails.title'),
         '',
         `ID: ${session.sessionId}`,
-        `Preset: ${session.preset}`,
-        `Trạng thái: ${session.status}`,
-        `Thư mục: ${session.cwd}`,
-        `Input mode: ${session.inputMode ? 'BẬT' : 'TẮT'}`,
-        `Auto enter: ${session.autoEnter ? 'BẬT' : 'TẮT'}`
+        `${t('bot.sessionDetails.preset')}: ${session.preset}`,
+        `${t('bot.sessionDetails.status')}: ${session.status}`,
+        `${t('bot.sessionDetails.directory')}: ${session.cwd}`,
+        `${t('bot.sessionDetails.inputMode')}: ${session.inputMode ? onText : offText}`,
+        `${t('bot.sessionDetails.autoEnter')}: ${session.autoEnter ? onText : offText}`
       ].join('\n'),
       keyboard
     );
@@ -370,10 +387,11 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     if (!draft) return false;
 
     const workspaces = [...deps.getWorkspaces()];
+    const t = getT();
 
     if (draft.mode === 'add_name') {
       state.workspaceDraft = { mode: 'add_path', name: text };
-      await ctx.reply('Nhập đường dẫn workspace:');
+      await ctx.reply(t('bot.workspaces.addPathPrompt'));
       return true;
     }
 
@@ -386,7 +404,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       workspaces.push(workspace);
       deps.saveWorkspaces(workspaces);
       state.workspaceDraft = null;
-      await ctx.reply(`✓ Đã thêm workspace "${workspace.name}".`);
+      await ctx.reply(t('bot.workspaces.added', { name: workspace.name }));
       await showWorkspaceDetails(ctx, workspace.id);
       return true;
     }
@@ -394,7 +412,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     const targetIndex = workspaces.findIndex((w) => w.id === draft.workspaceId);
     if (targetIndex === -1) {
       state.workspaceDraft = null;
-      await ctx.reply('Workspace không còn tồn tại.');
+      await ctx.reply(t('bot.workspaces.notExists'));
       return true;
     }
 
@@ -402,7 +420,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       workspaces[targetIndex] = { ...workspaces[targetIndex], name: text };
       deps.saveWorkspaces(workspaces);
       state.workspaceDraft = null;
-      await ctx.reply('✓ Đã cập nhật tên workspace.');
+      await ctx.reply(t('bot.workspaces.updatedName'));
       await showWorkspaceDetails(ctx, workspaces[targetIndex].id);
       return true;
     }
@@ -411,7 +429,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       workspaces[targetIndex] = { ...workspaces[targetIndex], path: text };
       deps.saveWorkspaces(workspaces);
       state.workspaceDraft = null;
-      await ctx.reply('✓ Đã cập nhật đường dẫn workspace.');
+      await ctx.reply(t('bot.workspaces.updatedPath'));
       await showWorkspaceDetails(ctx, workspaces[targetIndex].id);
       return true;
     }
@@ -431,11 +449,12 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     const field = draft.field;
     const config = deps.getConfig();
     const isNumeric = ['outputInterval', 'maxOutputLines', 'maxRenderLines'].includes(field);
+    const t = getT();
 
     if (isNumeric) {
       const parsed = parseInt(text, 10);
       if (isNaN(parsed) || !Number.isFinite(parsed)) {
-        await ctx.reply(`❌ Giá trị nhập vào không hợp lệ. Vui lòng nhập một số nguyên hợp lệ cho field "${field}".`);
+        await ctx.reply(t('bot.config.invalidValue', { field }));
         return true;
       }
       const nextConfig = { ...config, [field]: parsed };
@@ -450,7 +469,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     }
 
     state.configFieldDraft = null;
-    await ctx.reply(`✓ Đã cập nhật cấu hình cho "${field}".`);
+    await ctx.reply(t('bot.config.updated', { field }));
     await showConfigMenu(ctx);
     return true;
   }
@@ -463,7 +482,8 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       process.env.ADMIN_USERNAME || process.env.TELEGRAM_USERNAME || ''
     );
     if (currentAllowedUsername && username !== currentAllowedUsername) {
-      await ctx.reply('Bot này chỉ dành cho tài khoản Telegram đã cấu hình.');
+      const t = getT();
+      await ctx.reply(t('bot.general.authError'));
       return;
     }
     await next();
@@ -488,23 +508,25 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
   // /send <lệnh> — gửi raw text tới session đang chạy
   bot.command('send', async (ctx) => {
     const rawText = ctx.message?.text ?? '';
+    const t = getT();
     // Bỏ phần "/send " ở đầu
     const payload = rawText.replace(/^\/send\s*/i, '').trim();
     if (!payload) {
-      await ctx.reply('Cách dùng: /send <lệnh cần gửi>');
+      await ctx.reply(t('bot.general.sendUsage'));
       return;
     }
     const session = deps.getActiveSession();
     if (!session || session.status !== 'running') {
-      await ctx.reply('Không có session đang chạy.');
+      await ctx.reply(t('bot.general.noActiveSession'));
       return;
     }
     deps.sendInput(session.autoEnter ? `${payload}\r` : payload);
-    await ctx.reply('✓ Đã gửi lệnh');
+    await ctx.reply(t('bot.general.sentCommand'));
   });
 
   bot.on('message:text', async (ctx) => {
     const text: string = ctx.message.text;
+    const t = getT();
 
     // Bỏ qua các lệnh bắt đầu bằng /
     if (text.startsWith('/')) return;
@@ -516,11 +538,11 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     if (session?.status === 'running' && session.inputMode) {
       const payload = session.autoEnter ? `${text}\r` : text;
       deps.sendInput(payload);
-      await ctx.reply('✓ Đã gửi lệnh');
+      await ctx.reply(t('bot.general.sentCommand'));
       return;
     }
 
-    await ctx.reply('Dùng /start để mở menu.');
+    await ctx.reply(t('bot.general.defaultMessage'));
   });
 
   bot.callbackQuery('main_menu', async (ctx) => {
@@ -563,7 +585,8 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     getChatState(chatId).configFieldDraft = { field };
-    await ctx.reply(`Nhập giá trị mới cho field "${field}":`);
+    const t = getT();
+    await ctx.reply(t('bot.config.enterValue', { field }));
   });
 
   bot.callbackQuery('help_view', async (ctx) => {
@@ -583,24 +606,27 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
 
   bot.callbackQuery('workspace_action:add', async (ctx) => {
     await safeAnswerCallback(ctx);
-    await beginWorkspaceDraft(ctx, { mode: 'add_name' }, 'Nhập tên workspace mới:');
+    const t = getT();
+    await beginWorkspaceDraft(ctx, { mode: 'add_name' }, t('bot.workspaces.addNamePrompt'));
   });
 
   bot.callbackQuery(/^workspace_action:edit_name:(.+)$/, async (ctx) => {
     await safeAnswerCallback(ctx);
+    const t = getT();
     await beginWorkspaceDraft(
       ctx,
       { mode: 'edit_name', workspaceId: ctx.match[1] },
-      'Nhập tên workspace mới:'
+      t('bot.workspaces.addNamePrompt')
     );
   });
 
   bot.callbackQuery(/^workspace_action:edit_path:(.+)$/, async (ctx) => {
     await safeAnswerCallback(ctx);
+    const t = getT();
     await beginWorkspaceDraft(
       ctx,
       { mode: 'edit_path', workspaceId: ctx.match[1] },
-      'Nhập đường dẫn workspace mới:'
+      t('bot.workspaces.addPathPrompt')
     );
   });
 
@@ -615,20 +641,21 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     await safeAnswerCallback(ctx);
     const workspaceId = ctx.match[1];
     const preset = ctx.match[2] as SessionPreset;
+    const t = getT();
 
     if (!SUPPORTED_PRESETS.includes(preset)) {
-      await ctx.reply(`Preset không hỗ trợ: ${preset}`);
+      await ctx.reply(t('bot.sessionControls.presetNotSupported', { preset }));
       return;
     }
 
     if (deps.getActiveSession()?.status === 'running') {
-      await ctx.reply('Đã có session đang chạy. Dừng session hiện tại trước.');
+      await ctx.reply(t('bot.sessionControls.runningSessionExists'));
       return;
     }
 
     const workspace = getWorkspaceById(workspaceId);
     if (!workspace) {
-      await ctx.reply('Workspace không tìm thấy.');
+      await ctx.reply(t('bot.workspaces.notFound'));
       return;
     }
 
@@ -641,7 +668,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
         preset,
         error: error instanceof Error ? error.message : String(error)
       });
-      await ctx.reply(`Lỗi khi khởi chạy session: ${error instanceof Error ? error.message : String(error)}`);
+      await ctx.reply(t('bot.sessionControls.startError', { error: error instanceof Error ? error.message : String(error) }));
     }
   });
 
@@ -660,9 +687,10 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     const session = deps.getActiveSession();
     const sessionId = ctx.match[1];
     const action = ctx.match[2];
+    const t = getT();
 
     if (!session || session.sessionId !== sessionId || session.status !== 'running') {
-      await ctx.reply('Session không đang chạy.');
+      await ctx.reply(t('bot.sessionControls.notRunning'));
       return;
     }
 
@@ -686,7 +714,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       case 'refresh':
         break;
       default:
-        await ctx.reply(`Hành động không hỗ trợ: ${action}`);
+        await ctx.reply(t('bot.sessionControls.unsupportedAction', { action }));
         return;
     }
 

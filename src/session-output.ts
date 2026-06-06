@@ -1,3 +1,4 @@
+import { AppLanguage } from './config.js';
 import { buildSessionActionMarkup, InlineKeyboardMarkup } from './session-controls.js';
 
 export interface SessionOutputMessage {
@@ -13,6 +14,7 @@ export interface BuildSessionOutputMessagesOptions {
   snapshot: string;
   inputMode?: boolean;
   autoEnter?: boolean;
+  language?: AppLanguage;
 }
 
 const TELEGRAM_MESSAGE_LIMIT = 4000;
@@ -25,7 +27,8 @@ export function buildSessionOutputMessages(
     sessionId: options.sessionId,
     inputMode: options.inputMode,
     autoEnter: options.autoEnter,
-    includeBackButton: false
+    includeBackButton: false,
+    language: options.language
   });
 
   return chunkTelegramCodeBlocks(options.snapshot, TELEGRAM_MESSAGE_LIMIT).map((chunk) => ({

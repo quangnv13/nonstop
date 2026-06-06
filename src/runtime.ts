@@ -433,7 +433,8 @@ export class NonstopRuntime {
       sessionId: session.sessionId,
       snapshot: finalText,
       inputMode: session.inputMode,
-      autoEnter: session.autoEnter
+      autoEnter: session.autoEnter,
+      language: this.config.language
     });
 
     if (!this.onSessionOutputPush) {

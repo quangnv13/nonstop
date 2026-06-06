@@ -129,7 +129,7 @@ Once the bot runtime is active, you can interact with it via the following Teleg
 * Selecting a workspace sets it as the working directory for your next PTY session.
 
 #### **⚙️ Dynamic Configuration**
-* Press **⚙️ Cấu hình** or send `/config`.
+* Press **⚙️ Settings** or send `/config`.
 * Tap any settings button (e.g. *Token*, *Admin*, *Interval*, etc.) and send a new value via message to apply immediately. 
 * If you modify the `Telegram Bot Token`, the bot will automatically reload and restart itself securely.
 
