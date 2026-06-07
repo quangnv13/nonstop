@@ -4,7 +4,7 @@ import * as path from 'path';
 import { createBotRuntime, BotRuntime, loadLastChatId } from './bot.js';
 import { getCurrentVersion } from './runtime-manager.js';
 import { AppConfig, saveConfigToDisk, applyConfigToProcessEnv } from './config.js';
-import { logger } from './logger.js';
+import { logger, cleanOldLogs } from './logger.js';
 import { RuntimeStateSnapshot, saveRuntimeState, clearRuntimeState, getIpcSocketPath } from './runtime-state.js';
 import * as net from 'net';
 import { shouldSkipSessionOutput } from './session-delivery.js';
@@ -42,6 +42,7 @@ export class NonstopRuntime {
   private heartbeatTicker: NodeJS.Timeout | null = null;
   private connectionCheckTicker: NodeJS.Timeout | null = null;
   private telegramConnected = false;
+  private lastLogCleanupAt: number = 0;
   private onSessionOutputPush: SessionOutputPushCallback | null = null;
   private bot: BotRuntime | null = null;
   private ipcServer: net.Server | null = null;
@@ -410,9 +411,26 @@ export class NonstopRuntime {
       clearInterval(this.heartbeatTicker);
     }
 
+    try {
+      cleanOldLogs();
+      this.lastLogCleanupAt = Date.now();
+    } catch {
+      // ignore
+    }
+
     this.heartbeatTicker = setInterval(() => {
       this.writeHeartbeat();
       void this.checkIpcCommands();
+
+      const now = Date.now();
+      if (now - this.lastLogCleanupAt > 3600000) {
+        this.lastLogCleanupAt = now;
+        try {
+          cleanOldLogs();
+        } catch {
+          // ignore
+        }
+      }
     }, 2000);
   }
 

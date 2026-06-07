@@ -12,7 +12,7 @@ import {
   saveConfigToDisk,
   AppConfig
 } from './config.js';
-import { logger } from './logger.js';
+import { logger, cleanOldLogs } from './logger.js';
 import { NonstopRuntime } from './runtime.js';
 import { launchControlCenter, attachToBackgroundSession } from './ui.js';
 import { getRuntimeStatus, stopBackgroundRuntime, checkUpdateOnStartup, startBackgroundRuntime, getCurrentVersion } from './runtime-manager.js';
@@ -21,6 +21,11 @@ import { loadWorkspaces, saveWorkspaces, createWorkspaceId } from './store.js';
 
 async function main(): Promise<void> {
   ensureEnvExampleFile();
+  try {
+    cleanOldLogs();
+  } catch {
+    // ignore
+  }
 
   const args = new Set(process.argv.slice(2));
   const isBackground = args.has('--background');

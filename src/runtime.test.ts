@@ -21,7 +21,9 @@ const dummyConfig: AppConfig = {
   claudeCmd: 'claude',
   claudeArgs: '[]',
   actionInterval: 500,
-  dangerousCommandConfirm: ''
+  dangerousCommandConfirm: '',
+  logRetentionDays: 7,
+  logRotationHourly: false
 };
 
 test('NonstopRuntime - flushOutput serializes concurrent calls and coalesces trailing runs', async () => {

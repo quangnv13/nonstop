@@ -683,7 +683,11 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     if (!chatId) return;
     getChatState(chatId).configFieldDraft = { field };
     const t = getT();
-    await ctx.reply(t('bot.config.enterValue', { field }));
+    if (field === 'telegramBotToken') {
+      await ctx.reply(t('bot.config.telegramBotTokenWarning'));
+    } else {
+      await ctx.reply(t('bot.config.enterValue', { field }));
+    }
   });
 
   bot.callbackQuery('help_view', async (ctx) => {

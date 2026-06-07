@@ -55,6 +55,7 @@ type TranslationKey =
   | 'bot.config.updated'
   | 'bot.config.enterValue'
   | 'bot.config.invalidValue'
+  | 'bot.config.telegramBotTokenWarning'
   | 'bot.workspaces.title'
   | 'bot.workspaces.empty'
   | 'bot.workspaces.add'
@@ -115,12 +116,12 @@ const MESSAGES: Record<AppLanguage, Record<TranslationKey, string>> = {
     'dashboard.menu': 'Menu',
     'dashboard.choice': 'Select an option',
     'menu.toggleRuntime': 'Start/Stop background runtime',
-    'menu.settings': 'Edit configuration',
-    'menu.workspaces': 'Manage workspaces',
-    'menu.startup': 'Configure startup',
-    'menu.language': 'Switch language',
-    'menu.logs': 'View recent logs',
-    'menu.exit': 'Exit',
+    'menu.settings': '⚙️ Edit configuration',
+    'menu.workspaces': '📁 Manage workspaces',
+    'menu.startup': '🔄 Configure startup',
+    'menu.language': '💬 Switch language',
+    'menu.logs': '📝 View recent logs',
+    'menu.exit': '❌ Exit',
     'settings.saved': 'Settings saved.',
     'startup.disabled': 'Disabled',
     'startup.background': 'Background',
@@ -156,6 +157,7 @@ const MESSAGES: Record<AppLanguage, Record<TranslationKey, string>> = {
     'bot.config.updated': '✓ Configuration updated for "{field}".',
     'bot.config.enterValue': 'Enter a new value for "{field}":',
     'bot.config.invalidValue': '❌ Invalid value. Please enter a valid integer for "{field}".',
+    'bot.config.telegramBotTokenWarning': '⚠️ WARNING: Changing the Telegram Bot Token will immediately STOP the current Bot and restart with the new Token. You will lose connection to this Bot and will need to message the new Bot to continue.\n\nPlease enter the new Telegram Bot Token:',
     'bot.workspaces.title': '📁 Workspaces',
     'bot.workspaces.empty': 'No workspaces configured.',
     'bot.workspaces.add': '➕ Add Workspace',
@@ -215,12 +217,12 @@ const MESSAGES: Record<AppLanguage, Record<TranslationKey, string>> = {
     'dashboard.menu': 'Menu',
     'dashboard.choice': 'Chọn một tùy chọn',
     'menu.toggleRuntime': 'Bật/Tắt runtime nền',
-    'menu.settings': 'Sửa cấu hình',
-    'menu.workspaces': 'Quản lý không gian làm việc',
-    'menu.startup': 'Cấu hình khởi động',
-    'menu.language': 'Đổi ngôn ngữ',
-    'menu.logs': 'Xem nhật ký gần đây',
-    'menu.exit': 'Thoát',
+    'menu.settings': '⚙️ Sửa cấu hình',
+    'menu.workspaces': '📁 Quản lý không gian làm việc',
+    'menu.startup': '🔄 Cấu hình khởi động',
+    'menu.language': '💬 Đổi ngôn ngữ',
+    'menu.logs': '📝 Xem nhật ký gần đây',
+    'menu.exit': '❌ Thoát',
     'settings.saved': 'Đã lưu cấu hình.',
     'startup.disabled': 'Tắt',
     'startup.background': 'Chạy nền',
@@ -256,6 +258,7 @@ const MESSAGES: Record<AppLanguage, Record<TranslationKey, string>> = {
     'bot.config.updated': '✓ Đã cập nhật cấu hình cho "{field}".',
     'bot.config.enterValue': 'Nhập giá trị mới cho trường "{field}":',
     'bot.config.invalidValue': '❌ Giá trị nhập vào không hợp lệ. Vui lòng nhập một số nguyên hợp lệ cho trường "{field}".',
+    'bot.config.telegramBotTokenWarning': '⚠️ CẢNH BÁO: Việc thay đổi Telegram Bot Token sẽ DỪNG Bot hiện tại lập tức và khởi động lại với Token mới. Bạn sẽ mất kết nối với Bot này và cần nhắn tin với Bot mới để tiếp tục.\n\nVui lòng nhập Telegram Bot Token mới:',
     'bot.workspaces.title': '📁 Danh sách không gian làm việc',
     'bot.workspaces.empty': 'Chưa có không gian làm việc nào.',
     'bot.workspaces.add': '➕ Thêm không gian làm việc',

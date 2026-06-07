@@ -22,6 +22,8 @@ export interface AppConfig {
   claudeArgs: string;
   actionInterval: number;
   dangerousCommandConfirm: string;
+  logRetentionDays: number;
+  logRotationHourly: boolean;
 }
 
 export type ConfigFieldKey =
@@ -31,7 +33,9 @@ export type ConfigFieldKey =
   | 'telegramUsername'
   | 'language'
   | 'startupMode'
-  | 'dangerousCommandConfirm';
+  | 'dangerousCommandConfirm'
+  | 'logRetentionDays'
+  | 'logRotationHourly';
 
 const DEFAULTS: AppConfig = {
   telegramBotToken: '',
@@ -50,7 +54,9 @@ const DEFAULTS: AppConfig = {
   antigravityArgs: '[]',
   claudeCmd: 'claude',
   claudeArgs: '[]',
-  dangerousCommandConfirm: 'rm -rf /,rm -rf,rm -fr,sudo,del /s,rd /s,rmdir /s,format,shutdown,reboot,poweroff,init 0,dd if=,mkfs,fdisk'
+  dangerousCommandConfirm: 'rm -rf /,rm -rf,rm -fr,sudo,del /s,rd /s,rmdir /s,format,shutdown,reboot,poweroff,init 0,dd if=,mkfs,fdisk',
+  logRetentionDays: 7,
+  logRotationHourly: false
 };
 
 export const ENV_FILE_PATH = path.join(process.cwd(), '.env');
@@ -74,7 +80,9 @@ export function parseConfigFromEnv(env: Record<string, string | undefined>): App
     claudeCmd: env.CLAUDE_CMD?.trim() || DEFAULTS.claudeCmd,
     claudeArgs: env.CLAUDE_ARGS?.trim() || DEFAULTS.claudeArgs,
     actionInterval: parseInteger(env.ACTION_INTERVAL, DEFAULTS.actionInterval),
-    dangerousCommandConfirm: env.DANGEROUS_COMMAND_CONFIRM !== undefined ? env.DANGEROUS_COMMAND_CONFIRM.trim() : DEFAULTS.dangerousCommandConfirm
+    dangerousCommandConfirm: env.DANGEROUS_COMMAND_CONFIRM !== undefined ? env.DANGEROUS_COMMAND_CONFIRM.trim() : DEFAULTS.dangerousCommandConfirm,
+    logRetentionDays: parseInteger(env.LOG_RETENTION_DAYS, DEFAULTS.logRetentionDays),
+    logRotationHourly: env.LOG_ROTATION_HOURLY === 'true' || env.LOG_ROTATION_HOURLY === '1' ? true : DEFAULTS.logRotationHourly
   };
 }
 
@@ -105,6 +113,8 @@ export function serializeConfigToEnv(config: AppConfig): string {
     `MAX_OUTPUT_LINES=${config.maxOutputLines}`,
     `MAX_RENDER_LINES=${config.maxRenderLines}`,
     `DANGEROUS_COMMAND_CONFIRM=${config.dangerousCommandConfirm}`,
+    `LOG_RETENTION_DAYS=${config.logRetentionDays}`,
+    `LOG_ROTATION_HOURLY=${config.logRotationHourly ? 'true' : 'false'}`,
     '',
     '# CLI OVERRIDES (Optional)',
     `CODEX_CMD=${config.codexCmd}`,
@@ -174,6 +184,8 @@ export function applyConfigToProcessEnv(config: AppConfig): void {
   process.env.CLAUDE_CMD = config.claudeCmd;
   process.env.CLAUDE_ARGS = config.claudeArgs;
   process.env.DANGEROUS_COMMAND_CONFIRM = config.dangerousCommandConfirm;
+  process.env.LOG_RETENTION_DAYS = String(config.logRetentionDays);
+  process.env.LOG_ROTATION_HOURLY = String(config.logRotationHourly);
 }
 
 function normalizeUsername(value: string): string {
