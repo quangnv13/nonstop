@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { StartupMode } from './config.js';
+import { StartupMode, AppLanguage } from './config.js';
+import { createTranslator } from './i18n.js';
 
 export function buildWindowsStartupCommand(entryScriptPath: string, mode: StartupMode): string {
   const runtimeFlag = mode === 'background' ? '--background' : '--open-ui';
@@ -47,17 +48,18 @@ export function detectPlatform(): 'windows' | 'linux' | 'unsupported' {
   return 'unsupported';
 }
 
-export function applyStartupMode(mode: StartupMode, entryScriptPath: string, workdir: string, language?: string): string {
+export function applyStartupMode(mode: StartupMode, entryScriptPath: string, workdir: string, language?: AppLanguage): string {
   const platform = detectPlatform();
-  const isVi = language === 'vi';
+  const resolvedLang = language || 'en';
+  const t = createTranslator(resolvedLang);
   if (platform === 'unsupported') {
-    return isVi ? 'Hệ điều hành không hỗ trợ cấu hình khởi động.' : 'Unsupported OS for startup integration.';
+    return t('cli.startup.unsupported');
   }
 
   clearStartupArtifacts();
 
   if (mode === 'disabled') {
-    return isVi ? 'Đã tắt khởi động cùng hệ điều hành.' : 'Startup with OS disabled.';
+    return t('cli.startup.disabled');
   }
 
   if (platform === 'windows') {
@@ -73,7 +75,7 @@ export function applyStartupMode(mode: StartupMode, entryScriptPath: string, wor
     fs.mkdirSync(startupDir, { recursive: true });
     const cmdPath = path.join(startupDir, 'nonstop.cmd');
     fs.writeFileSync(cmdPath, `@echo off\r\ncd /d "${workdir}"\r\n${buildWindowsStartupCommand(entryScriptPath, mode)}\r\n`, 'utf8');
-    return isVi ? `Đã bật khởi động cùng Windows (${mode === 'background' ? 'chạy nền' : 'mở giao diện'}).` : `Startup enabled on Windows (${mode}).`;
+    return t('cli.startup.enabledWindows', { mode });
   }
 
   if (mode === 'open-ui') {
@@ -84,7 +86,7 @@ export function applyStartupMode(mode: StartupMode, entryScriptPath: string, wor
       buildLinuxAutostartDesktopEntry(entryScriptPath),
       'utf8'
     );
-    return isVi ? 'Đã bật khởi động khi đăng nhập Linux desktop (open-ui).' : 'Startup enabled on Linux desktop login (open-ui).';
+    return t('cli.startup.enabledLinuxUi');
   }
 
   const systemdDir = path.join(os.homedir(), '.config', 'systemd', 'user');
@@ -94,7 +96,7 @@ export function applyStartupMode(mode: StartupMode, entryScriptPath: string, wor
     buildLinuxSystemdService(workdir, entryScriptPath),
     'utf8'
   );
-  return isVi ? 'Đã bật khởi động dạng user service trên Linux (background).' : 'Startup enabled on Linux user service (background).';
+  return t('cli.startup.enabledLinuxBg');
 }
 
 export function clearStartupArtifacts(): void {

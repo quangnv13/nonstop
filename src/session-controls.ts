@@ -1,4 +1,5 @@
 import { AppLanguage } from './config.js';
+import { createTranslator } from './i18n.js';
 
 export interface SessionActionMarkupOptions {
   sessionId: string;
@@ -20,24 +21,20 @@ export interface InlineKeyboardMarkup {
 export function buildSessionActionMarkup(options: SessionActionMarkupOptions): InlineKeyboardMarkup {
   const inputMode = options.inputMode ?? true;
   const autoEnter = options.autoEnter ?? true;
-  const isVi = options.language === 'vi';
+  const t = createTranslator(options.language || 'en');
 
   const rows: InlineKeyboardButton[][] = [
     [
       {
-        text: inputMode
-          ? (isVi ? '⌨️ Tắt Nhập' : '⌨️ Input OFF')
-          : (isVi ? '⌨️ Bật Nhập' : '⌨️ Input ON'),
+        text: inputMode ? t('bot.sessionMarkup.inputOff') : t('bot.sessionMarkup.inputOn'),
         callback_data: `session_cmd:${options.sessionId}:toggle_input`
       },
       {
-        text: autoEnter
-          ? (isVi ? '⏎ Tắt AutoEnter' : '⏎ AutoEnter OFF')
-          : (isVi ? '⏎ Bật AutoEnter' : '⏎ AutoEnter ON'),
+        text: autoEnter ? t('bot.sessionMarkup.autoEnterOff') : t('bot.sessionMarkup.autoEnterOn'),
         callback_data: `session_cmd:${options.sessionId}:toggle_enter`
       },
       {
-        text: isVi ? '🔄 Tải lại' : '🔄 Refresh',
+        text: t('bot.sessionMarkup.refresh'),
         callback_data: `session_cmd:${options.sessionId}:refresh`
       }
     ],
@@ -47,11 +44,11 @@ export function buildSessionActionMarkup(options: SessionActionMarkupOptions): I
         callback_data: `session_cmd:${options.sessionId}:send_escape`
       },
       {
-        text: isVi ? '⬆️ Lên' : '⬆️ Up',
+        text: t('bot.sessionMarkup.up'),
         callback_data: `session_cmd:${options.sessionId}:send_up`
       },
       {
-        text: isVi ? '⬇️ Xuống' : '⬇️ Down',
+        text: t('bot.sessionMarkup.down'),
         callback_data: `session_cmd:${options.sessionId}:send_down`
       }
     ],
@@ -61,7 +58,7 @@ export function buildSessionActionMarkup(options: SessionActionMarkupOptions): I
         callback_data: `session_cmd:${options.sessionId}:send_enter`
       },
       {
-        text: isVi ? '🛑 Dừng' : '🛑 Stop',
+        text: t('bot.sessionMarkup.stop'),
         callback_data: `session_cmd:${options.sessionId}:stop`
       }
     ]
@@ -70,7 +67,7 @@ export function buildSessionActionMarkup(options: SessionActionMarkupOptions): I
   if (options.includeBackButton) {
     rows.push([
       {
-        text: isVi ? '⬅️ Quay lại' : '⬅️ Back',
+        text: t('bot.sessionMarkup.back'),
         callback_data: 'sessions_list'
       }
     ]);

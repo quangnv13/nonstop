@@ -31,7 +31,8 @@
     "images",
     "scripts",
     "README.md",
-    "README.vi.md"
+    "README.vi.md",
+    "README.zh.md"
   ],
   "bin": {
     "nonstop": "dist/index.js"
@@ -52,8 +53,7 @@
     "dotenv": "^16.4.5",
     "grammy": "^1.22.4",
     "inquirer": "^14.0.2",
-    "node-pty": "^1.0.0",
-    "picocolors": "^1.1.1"
+    "node-pty": "^1.0.0"
   },
   "devDependencies": {
     "@types/inquirer": "^9.0.9",

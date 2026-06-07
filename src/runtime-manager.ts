@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { loadRuntimeState, isPidRunning, RuntimeStateSnapshot, saveShouldRunState } from './runtime-state.js';
 import { AppLanguage, loadConfigFromDisk } from './config.js';
+import { createTranslator } from './i18n.js';
 
 export interface RuntimeStatus {
   running: boolean;
@@ -45,8 +46,14 @@ export function getEntryScriptPath(): string {
 }
 
 export function startBackgroundRuntime(language?: AppLanguage): string {
-  const entryScriptPath = getEntryScriptPath();
+  const resolvedLang = language || 'en';
+  const t = createTranslator(resolvedLang);
+  const isRunning = getRuntimeStatus().running;
+  if (isRunning) {
+    return t('cli.runtime.alreadyRunning');
+  }
 
+  const entryScriptPath = getEntryScriptPath();
   saveShouldRunState(true);
 
   const child = spawn(process.execPath, [entryScriptPath, '--background'], {
@@ -57,29 +64,24 @@ export function startBackgroundRuntime(language?: AppLanguage): string {
 
   child.unref();
   const pid = child.pid ?? 'unknown';
-  return language === 'vi'
-    ? `✓ Đã khởi chạy runtime nền của nonstop (pid ${pid}).`
-    : `✓ Started the nonstop background runtime (PID ${pid}).`;
+  return t('cli.runtime.started', { pid });
 }
 
 export function stopBackgroundRuntime(snapshot: RuntimeStateSnapshot | null, language?: AppLanguage): string {
-  const isVi = language === 'vi';
+  const resolvedLang = language || 'en';
+  const t = createTranslator(resolvedLang);
   if (!snapshot || !isPidRunning(snapshot.pid)) {
-    return isVi ? '⚠ Runtime nền không đang chạy.' : 'The background runtime is not running.';
+    return t('cli.runtime.notRunning');
   }
 
   saveShouldRunState(false);
 
   try {
     process.kill(snapshot.pid);
-    return isVi
-      ? `✓ Đã dừng runtime nền của nonstop (${snapshot.pid}).`
-      : `✓ Stopped the nonstop background runtime (${snapshot.pid}).`;
+    return t('cli.runtime.stopped', { pid: snapshot.pid });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    throw new Error(isVi
-      ? `❌ Lỗi khi dừng runtime nền (${snapshot.pid}): ${errorMsg}`
-      : `Failed to stop the background runtime (${snapshot.pid}): ${errorMsg}`);
+    throw new Error(t('cli.runtime.stopFailed', { pid: snapshot.pid, error: errorMsg }));
   }
 }
 
@@ -115,7 +117,7 @@ export function checkForUpdate(currentVersion: string): Promise<string | null> {
   });
 }
 
-export async function checkUpdateOnStartup(isBackground: boolean, language: 'vi' | 'en'): Promise<void> {
+export async function checkUpdateOnStartup(isBackground: boolean, language: AppLanguage): Promise<void> {
   const currentVersion = getCurrentVersion();
   const latestVersion = await checkForUpdate(currentVersion);
 
@@ -126,25 +128,24 @@ export async function checkUpdateOnStartup(isBackground: boolean, language: 'vi'
   }
 }
 
-function promptUpgradeBackground(currentVersion: string, latestVersion: string, language: 'vi' | 'en'): void {
+function promptUpgradeBackground(currentVersion: string, latestVersion: string, language: AppLanguage): void {
   const platform = os.platform();
-  let isVi = language === 'vi';
+  let resolvedLang = language;
   try {
     const config = loadConfigFromDisk();
-    isVi = config.language === 'vi';
+    resolvedLang = config.language;
   } catch {
     // fallback to parameter
   }
+  const t = createTranslator(resolvedLang);
 
   if (platform === 'win32') {
-    const title = isVi ? 'Cập nhật nonstop' : 'nonstop Update';
-    const msg = isVi
-      ? `Có phiên bản mới của nonstop: ${latestVersion} (Hiện tại: ${currentVersion}). Bạn có muốn nâng cấp không? (y/n): `
-      : `A new version of nonstop is available: ${latestVersion} (Current: ${currentVersion}). Do you want to upgrade? (y/n): `;
-    const upgradingMsg = isVi ? 'Đang nâng cấp @quangnv13/nonstop lên phiên bản mới nhất...' : 'Upgrading @quangnv13/nonstop to the latest version...';
-    const successMsg = isVi ? 'Cập nhật nonstop thành công! Nhấn phím bất kỳ để đóng...' : 'nonstop update successful! Press any key to close...';
-    const failMsg = isVi ? 'Cập nhật nonstop thất bại.' : 'nonstop update failed.';
-    const skippedMsg = isVi ? 'Đã bỏ qua cập nhật nonstop.' : 'nonstop update skipped.';
+    const title = t('cli.upgrade.title');
+    const msg = t('cli.upgrade.available', { latest: latestVersion, current: currentVersion });
+    const upgradingMsg = t('cli.upgrade.upgrading');
+    const successMsg = t('cli.upgrade.success');
+    const failMsg = t('cli.upgrade.failed');
+    const skippedMsg = t('cli.upgrade.skipped');
 
     const psCommand = `
       $Host.UI.RawUI.WindowTitle = '${title}';
@@ -182,6 +183,6 @@ function promptUpgradeBackground(currentVersion: string, latestVersion: string, 
       shell: true
     }).unref();
   } else {
-    console.log(`Update available: ${latestVersion} (Current version: ${currentVersion})`);
+    console.log(t('cli.upgrade.availableNonInteractive', { latest: latestVersion, current: currentVersion }));
   }
 }

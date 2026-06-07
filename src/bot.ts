@@ -5,7 +5,7 @@ import { buildSessionActionMarkup } from './session-controls.js';
 import { SessionOutputMessage } from './session-output.js';
 import { ActiveSessionState, SessionPreset, Workspace, WorkspaceDraft } from './types.js';
 import { createWorkspaceId } from './store.js';
-import { AppConfig, StartupMode } from './config.js';
+import { AppConfig, StartupMode, AppLanguage } from './config.js';
 import { createTranslator } from './i18n.js';
 
 const grammyRequire: NodeRequire = require;
@@ -227,7 +227,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       `• Admin Username: ${config.adminUsername || notConfigured}`,
       `• Client Name: ${config.clientName || notConfigured}`,
       `• Telegram Username: ${config.telegramUsername || notConfigured}`,
-      `• ${t('bot.config.languageLabel')}: ${config.language} (vi/en)`,
+      `• ${t('bot.config.languageLabel')}: ${config.language} (en/vi/zh)`,
       `• ${t('bot.config.startupLabel')}: ${config.startupMode} (disabled/background/open-ui)`,
       `• Output Interval: ${config.outputInterval} ms`,
       `• Max Output Lines: ${config.maxOutputLines}`,
@@ -248,7 +248,12 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
       .text('Client Name', 'config_edit:clientName')
       .text('Telegram User', 'config_edit:telegramUsername')
       .row()
-      .text(`${t('bot.config.languageLabel')} (${config.language === 'vi' ? '🇻🇳 vi' : '🇬🇧 en'})`, 'config_edit:language')
+      .text(
+        `${t('bot.config.languageLabel')} (${
+          config.language === 'en' ? '🇬🇧 en' : (config.language === 'vi' ? '🇻🇳 vi' : '🇨🇳 zh')
+        })`,
+        'config_edit:language'
+      )
       .text(`${t('bot.config.startupLabel')} (${config.startupMode})`, 'config_edit:startupMode')
       .row()
       .text('Interval', 'config_edit:outputInterval')
@@ -658,7 +663,14 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
 
     if (field === 'language') {
       const config = deps.getConfig();
-      const nextLang = config.language === 'vi' ? 'en' : 'vi';
+      let nextLang: AppLanguage;
+      if (config.language === 'en') {
+        nextLang = 'vi';
+      } else if (config.language === 'vi') {
+        nextLang = 'zh';
+      } else {
+        nextLang = 'en';
+      }
       await deps.saveConfig({ ...config, language: nextLang });
       await showConfigMenu(ctx);
       return;

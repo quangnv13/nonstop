@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-export type AppLanguage = 'en' | 'vi';
+export type AppLanguage = 'en' | 'vi' | 'zh';
 export type StartupMode = 'disabled' | 'background' | 'open-ui';
 
 export interface AppConfig {
@@ -204,7 +204,9 @@ function parseInteger(value: string | undefined, fallback: number): number {
 
 
 function parseLanguage(value: string | undefined): AppLanguage {
-  return value === 'vi' ? 'vi' : 'en';
+  if (value === 'vi') return 'vi';
+  if (value === 'zh') return 'zh';
+  return 'en';
 }
 
 function parseStartupMode(value: string | undefined): StartupMode {

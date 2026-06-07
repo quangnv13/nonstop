@@ -4,6 +4,7 @@ import * as path from 'path';
 import { createBotRuntime, BotRuntime, loadLastChatId } from './bot.js';
 import { getCurrentVersion } from './runtime-manager.js';
 import { AppConfig, saveConfigToDisk, applyConfigToProcessEnv } from './config.js';
+import { createTranslator } from './i18n.js';
 import { logger, cleanOldLogs } from './logger.js';
 import { RuntimeStateSnapshot, saveRuntimeState, clearRuntimeState, getIpcSocketPath } from './runtime-state.js';
 import * as net from 'net';
@@ -175,9 +176,8 @@ export class NonstopRuntime {
         if (lastChatId && this.bot) {
           try {
             const version = getCurrentVersion();
-            const startupMsg = this.config.language === 'vi'
-              ? `✅ nonstop client (v${version}) đã khởi động thành công và đang chạy!\n🖥 Client: ${this.config.clientName}`
-              : `✅ nonstop client (v${version}) started successfully and is running!\n🖥 Client: ${this.config.clientName}`;
+            const t = createTranslator(this.config.language);
+            const startupMsg = t('cli.runtime.startupSuccess', { version, clientName: this.config.clientName });
             await this.bot.pushSessionOutput(lastChatId, startupMsg);
           } catch {
             // ignore
@@ -491,9 +491,10 @@ export class NonstopRuntime {
 
     if (this.onSessionOutputPush) {
       try {
+        const t = createTranslator(this.config.language);
         await this.onSessionOutputPush(
           session.listenerChatId,
-          `Session \`${sessionId}\` exited with code \`${code}\`.`
+          t('bot.session.exitedWithCode', { sessionId, code })
         );
       } catch (err) {
         logger.error('Failed to push session exit notification to Telegram', {

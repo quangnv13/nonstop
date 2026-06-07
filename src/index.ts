@@ -12,6 +12,7 @@ import {
   saveConfigToDisk,
   AppConfig
 } from './config.js';
+import { createTranslator } from './i18n.js';
 import { logger, cleanOldLogs } from './logger.js';
 import { NonstopRuntime } from './runtime.js';
 import { launchControlCenter, attachToBackgroundSession } from './ui.js';
@@ -81,14 +82,13 @@ async function main(): Promise<void> {
 
   const config = loadConfigFromDisk();
   applyConfigToProcessEnv(config);
+  const t = createTranslator(config.language);
 
   // Default command: start the interactive dashboard
   if (process.argv.length <= 2 || isOpenUi) {
     const status = getRuntimeStatus();
     if (!status.running && loadShouldRunState()) {
-      console.log(config.language === 'vi'
-        ? '↻ Phát hiện trạng thái trước đó đang chạy. Đang tự khởi động lại runtime nền...'
-        : '↻ Detected previous running state. Auto-restarting the background runtime...');
+      console.log(t('cli.runtime.autoRestarting'));
       try {
         const msg = startBackgroundRuntime(config.language);
         console.log(msg);
@@ -116,9 +116,7 @@ async function main(): Promise<void> {
     .action(async () => {
       const status = getRuntimeStatus();
       if (status.running) {
-        console.log(config.language === 'vi'
-          ? '⚠ Runtime nền của nonstop đã đang chạy.'
-          : 'The nonstop background runtime is already running.');
+        console.log(t('cli.runtime.alreadyRunning'));
         return;
       }
       try {
@@ -147,9 +145,7 @@ async function main(): Promise<void> {
           process.exitCode = 1;
         }
       } else {
-        console.log(config.language === 'vi'
-          ? '⚠ Runtime nền của nonstop không đang chạy.'
-          : 'The nonstop background runtime is not running.');
+        console.log(t('cli.runtime.notRunning'));
       }
     });
 
@@ -160,12 +156,12 @@ async function main(): Promise<void> {
     .description('View daemon, active sessions, and configuration status')
     .action(async () => {
       const status = getRuntimeStatus();
-      const isVi = config.language === 'vi';
+      const t = createTranslator(config.language);
 
       // 1. Daemon Status
-      console.log(chalk.bold.cyan('\n=== ' + (isVi ? 'TRẠNG THÁI DAEMON' : 'DAEMON STATUS') + ' ==='));
+      console.log(chalk.bold.cyan('\n=== ' + t('cli.status.daemonStatus') + ' ==='));
       const daemonTable = new Table({
-        head: [chalk.cyan(isVi ? 'Thuộc tính' : 'Property'), chalk.cyan(isVi ? 'Giá trị' : 'Value')],
+        head: [chalk.cyan(t('cli.status.property')), chalk.cyan(t('cli.status.value'))],
         chars: {
           'top': '─', 'top-mid': '┬', 'top-left': '┌', 'top-right': '┐',
           'bottom': '─', 'bottom-mid': '┴', 'bottom-left': '└', 'bottom-right': '┘',
@@ -173,17 +169,20 @@ async function main(): Promise<void> {
           'right': '│', 'right-mid': '┤', 'middle': '│'
         }
       });
+      const locales = { en: 'en-US', vi: 'vi-VN', zh: 'zh-CN' };
+      const timeLocale = locales[config.language] || 'en-US';
+
       daemonTable.push(
-        [isVi ? 'Đang chạy' : 'Running', status.running ? chalk.bold.green(isVi ? 'Có' : 'Yes') : chalk.bold.red(isVi ? 'Không' : 'No')],
-        [isVi ? 'PID' : 'PID', status.snapshot?.pid || '-'],
-        [isVi ? 'Bật lúc' : 'Started At', status.snapshot?.startedAt ? new Date(status.snapshot.startedAt).toLocaleString() : '-'],
-        [isVi ? 'Heartbeat cuối' : 'Last Heartbeat', status.snapshot?.lastHeartbeatAt ? new Date(status.snapshot.lastHeartbeatAt).toLocaleString() : '-'],
-        [isVi ? 'Chế độ' : 'Mode', status.snapshot?.mode || '-']
+        [t('cli.status.running'), status.running ? chalk.bold.green(t('cli.status.yes')) : chalk.bold.red(t('cli.status.no'))],
+        ['PID', status.snapshot?.pid || '-'],
+        [t('cli.status.startedAt'), status.snapshot?.startedAt ? new Date(status.snapshot.startedAt).toLocaleString(timeLocale) : '-'],
+        [t('cli.status.lastHeartbeat'), status.snapshot?.lastHeartbeatAt ? new Date(status.snapshot.lastHeartbeatAt).toLocaleString(timeLocale) : '-'],
+        [t('cli.status.mode'), status.snapshot?.mode || '-']
       );
       console.log(daemonTable.toString());
 
       // 2. Active Session
-      console.log(chalk.bold.cyan('\n=== ' + (isVi ? 'PHIÊN HOẠT ĐỘNG' : 'ACTIVE SESSION') + ' ==='));
+      console.log(chalk.bold.cyan('\n=== ' + t('cli.status.activeSession') + ' ==='));
       const session = status.snapshot?.activeSession;
       if (status.running && session && session.status === 'running') {
         const sessionTable = new Table({
@@ -203,13 +202,13 @@ async function main(): Promise<void> {
         ]);
         console.log(sessionTable.toString());
       } else {
-        console.log(chalk.gray(isVi ? '  Không có phiên hoạt động nào.' : '  No active sessions.'));
+        console.log(chalk.gray(t('cli.status.noActiveSessions')));
       }
 
       // 3. Configuration Summary
-      console.log(chalk.bold.cyan('\n=== ' + (isVi ? 'TÓM TẮT CẤU HÌNH' : 'CONFIGURATION SUMMARY') + ' ==='));
+      console.log(chalk.bold.cyan('\n=== ' + t('cli.status.configSummary') + ' ==='));
       const configTable = new Table({
-        head: [chalk.cyan(isVi ? 'Cấu hình' : 'Config Key'), chalk.cyan(isVi ? 'Giá trị' : 'Value')],
+        head: [chalk.cyan(t('cli.status.configKey')), chalk.cyan(t('cli.status.value'))],
         chars: {
           'top': '─', 'top-mid': '┬', 'top-left': '┌', 'top-right': '┐',
           'bottom': '─', 'bottom-mid': '┴', 'bottom-left': '└', 'bottom-right': '┘',
@@ -244,13 +243,13 @@ async function main(): Promise<void> {
     .description('List registered workspaces')
     .action(() => {
       const workspaces = loadWorkspaces();
-      const isVi = config.language === 'vi';
+      const t = createTranslator(config.language);
       if (workspaces.length === 0) {
-        console.log(chalk.yellow(isVi ? 'Không có không gian làm việc nào được đăng ký.' : 'No workspaces registered.'));
+        console.log(chalk.yellow(t('cli.workspace.noWorkspaces')));
         return;
       }
       const table = new Table({
-        head: [chalk.cyan('ID'), chalk.cyan(isVi ? 'Tên' : 'Name'), chalk.cyan(isVi ? 'Đường dẫn' : 'Path')],
+        head: [chalk.cyan('ID'), chalk.cyan(t('cli.workspace.name')), chalk.cyan(t('cli.workspace.path'))],
         chars: {
           'top': '─', 'top-mid': '┬', 'top-left': '┌', 'top-right': '┐',
           'bottom': '─', 'bottom-mid': '┴', 'bottom-left': '└', 'bottom-right': '┘',
@@ -269,7 +268,7 @@ async function main(): Promise<void> {
     .description('Add a new workspace')
     .action((name, wsPath) => {
       const workspaces = loadWorkspaces();
-      const isVi = config.language === 'vi';
+      const t = createTranslator(config.language);
       const resolvedPath = path.resolve(wsPath);
 
       const newWs = {
@@ -281,9 +280,7 @@ async function main(): Promise<void> {
       workspaces.push(newWs);
       saveWorkspaces(workspaces);
 
-      console.log(chalk.green(isVi
-        ? `✓ Đã thêm không gian làm việc thành công! (ID: ${newWs.id})`
-        : `✓ Workspace added successfully! (ID: ${newWs.id})`));
+      console.log(chalk.green(t('cli.workspace.added', { id: newWs.id })));
     });
 
   workspaceCmd
@@ -291,22 +288,18 @@ async function main(): Promise<void> {
     .description('Remove a workspace')
     .action((idOrName) => {
       const workspaces = loadWorkspaces();
-      const isVi = config.language === 'vi';
+      const t = createTranslator(config.language);
       const index = workspaces.findIndex(ws => ws.id === idOrName || ws.name === idOrName);
 
       if (index === -1) {
-        console.error(chalk.red(isVi
-          ? `❌ Không tìm thấy không gian làm việc với ID hoặc Tên: ${idOrName}`
-          : `❌ Workspace not found with ID or Name: ${idOrName}`));
+        console.error(chalk.red(t('cli.workspace.notFound', { idOrName })));
         process.exitCode = 1;
         return;
       }
 
       const removed = workspaces.splice(index, 1)[0];
       saveWorkspaces(workspaces);
-      console.log(chalk.green(isVi
-        ? `✓ Đã xóa không gian làm việc "${removed.name}" thành công!`
-        : `✓ Workspace "${removed.name}" removed successfully!`));
+      console.log(chalk.green(t('cli.workspace.removed', { name: removed.name })));
     });
 
   // nonstop config ...
@@ -316,7 +309,7 @@ async function main(): Promise<void> {
     .command('get [key]')
     .description('Print configuration')
     .action((key) => {
-      const isVi = config.language === 'vi';
+      const t = createTranslator(config.language);
 
       const maskToken = (k: string, v: string) => {
         if (k === 'telegramBotToken' && v) {
@@ -330,14 +323,14 @@ async function main(): Promise<void> {
         if (key in config) {
           console.log(`${key}=${config[key as keyof AppConfig]}`);
         } else {
-          console.error(chalk.red(isVi ? `❌ Khóa cấu hình không hợp lệ: ${key}` : `❌ Invalid config key: ${key}`));
+          console.error(chalk.red(t('cli.config.invalidKey', { key })));
           process.exitCode = 1;
         }
         return;
       }
 
       const table = new Table({
-        head: [chalk.cyan(isVi ? 'Cấu hình' : 'Config Key'), chalk.cyan(isVi ? 'Giá trị' : 'Value')],
+        head: [chalk.cyan(t('cli.status.configKey')), chalk.cyan(t('cli.status.value'))],
         chars: {
           'top': '─', 'top-mid': '┬', 'top-left': '┌', 'top-right': '┐',
           'bottom': '─', 'bottom-mid': '┴', 'bottom-left': '└', 'bottom-right': '┘',
@@ -356,9 +349,9 @@ async function main(): Promise<void> {
     .command('set <key> <value>')
     .description('Set configuration dynamically')
     .action((key, value) => {
-      const isVi = config.language === 'vi';
+      const t = createTranslator(config.language);
       if (!(key in config)) {
-        console.error(chalk.red(isVi ? `❌ Khóa cấu hình không hợp lệ: ${key}` : `❌ Invalid config key: ${key}`));
+        console.error(chalk.red(t('cli.config.invalidKey', { key })));
         process.exitCode = 1;
         return;
       }
@@ -368,20 +361,20 @@ async function main(): Promise<void> {
       if (typeof originalValue === 'number') {
         const num = parseInt(value, 10);
         if (isNaN(num)) {
-          console.error(chalk.red(isVi ? `❌ Giá trị phải là số nguyên: ${value}` : `❌ Value must be an integer: ${value}`));
+          console.error(chalk.red(t('cli.config.invalidValue', { value })));
           process.exitCode = 1;
           return;
         }
         parsedValue = num;
       } else if (key === 'language') {
-        if (value !== 'vi' && value !== 'en') {
-          console.error(chalk.red(isVi ? `❌ Ngôn ngữ phải là 'vi' hoặc 'en'` : `❌ Language must be 'vi' or 'en'`));
+        if (value !== 'vi' && value !== 'en' && value !== 'zh') {
+          console.error(chalk.red(t('cli.config.invalidLanguage')));
           process.exitCode = 1;
           return;
         }
       } else if (key === 'startupMode') {
         if (value !== 'disabled' && value !== 'background' && value !== 'open-ui') {
-          console.error(chalk.red(isVi ? `❌ Startup mode phải là 'disabled', 'background', hoặc 'open-ui'` : `❌ Startup mode must be 'disabled', 'background', or 'open-ui'`));
+          console.error(chalk.red(t('cli.config.invalidStartupMode')));
           process.exitCode = 1;
           return;
         }
@@ -393,9 +386,7 @@ async function main(): Promise<void> {
       };
       saveConfigToDisk(nextConfig);
 
-      console.log(chalk.green(isVi
-        ? `✓ Đã cập nhật cấu hình ${key} thành công! (Khởi động lại runtime nền nếu đang chạy để áp dụng)`
-        : `✓ Config ${key} updated successfully! (Restart the background runtime if it is running to apply the changes)`));
+      console.log(chalk.green(t('cli.config.updated', { key })));
     });
 
   // nonstop session ...
@@ -406,7 +397,7 @@ async function main(): Promise<void> {
     .description('List active spawned PTY sessions')
     .action(() => {
       const status = getRuntimeStatus();
-      const isVi = config.language === 'vi';
+      const t = createTranslator(config.language);
       const session = status.snapshot?.activeSession;
 
       const table = new Table({
@@ -437,7 +428,7 @@ async function main(): Promise<void> {
         ]);
         console.log(table.toString());
       } else {
-        console.log(chalk.yellow(isVi ? 'Không có phiên PTY nào đang hoạt động.' : 'No active PTY sessions.'));
+        console.log(chalk.yellow(t('cli.session.noActive')));
       }
     });
 
@@ -445,12 +436,10 @@ async function main(): Promise<void> {
     .command('attach <preset> <cwd>')
     .description('Attach to an active session locally')
     .action(async (preset, cwd) => {
-      const isVi = config.language === 'vi';
+      const t = createTranslator(config.language);
       const status = getRuntimeStatus();
       if (!status.running) {
-        console.error(chalk.red(isVi
-          ? '❌ Không thể kết nối vì runtime nền không chạy.'
-          : '❌ Cannot attach because the background runtime is not running.'));
+        console.error(chalk.red(t('cli.session.runtimeNotRunning')));
         process.exitCode = 1;
         return;
       }

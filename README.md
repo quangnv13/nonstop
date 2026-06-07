@@ -1,7 +1,7 @@
 <h1 align="center">🚀 nonstop</h1>
 
 <p align="center">
-  🌐 <b>English</b> | 🌐 <a href="./README.vi.md">Tiếng Việt</a>
+  🌐 <b>English</b> | 🌐 <a href="./README.vi.md">Tiếng Việt</a> | 🌐 <a href="./README.zh.md">中文</a>
 </p>
 
 <p align="center">
