@@ -52,8 +52,8 @@ function titleBox(title: string): string {
   });
 }
 
-function infoRow(label: string, value: string, valueColor: (s: string) => string = (s) => s): string {
-  return `  ${chalk.gray(label.padEnd(14))} ${valueColor(value)}`;
+function infoRow(icon: string, label: string, value: string, valueColor: (s: string) => string = (s) => s): string {
+  return `  ${icon}  ${chalk.gray(label.padEnd(11))} ${valueColor(value)}`;
 }
 
 function separator(): string {
@@ -214,29 +214,29 @@ function renderDashboardHeader(config: AppConfig, snapshot: RuntimeStateSnapshot
 
   console.log(titleBox(t('dashboard.title')));
   console.log('');
-  console.log(infoRow(isVi ? 'ℹ️ Trạng thái' : 'ℹ️ Status', isRunning ? `${runtimeLabel}  ${chalk.gray(`(${modeLabel})`)}` : runtimeLabel));
-  console.log(infoRow(isVi ? '🏷️ Phiên bản' : '🏷️ Version', `v${getCurrentVersion()}`, chalk.white));
-  console.log(infoRow('💬 Telegram', telegramStatus, telegramColor));
-  console.log(infoRow('💻 Client', config.clientName, chalk.white));
-  console.log(infoRow('👤 Admin', config.adminUsername || '-', chalk.white));
-  console.log(infoRow(isVi ? '🌐 Ngôn ngữ' : '🌐 Language', config.language === 'vi' ? 'Tiếng Việt' : 'English', chalk.white));
-  console.log(infoRow(isVi ? '🚀 Khởi động' : '🚀 Startup', startupModeLabel, chalk.white));
+  console.log(infoRow('ℹ️', isVi ? 'Trạng thái' : 'Status', isRunning ? `${runtimeLabel}  ${chalk.gray(`(${modeLabel})`)}` : runtimeLabel));
+  console.log(infoRow('🏷️', isVi ? 'Phiên bản' : 'Version', `v${getCurrentVersion()}`, chalk.white));
+  console.log(infoRow('💬', 'Telegram', telegramStatus, telegramColor));
+  console.log(infoRow('💻', 'Client', config.clientName, chalk.white));
+  console.log(infoRow('👤', 'Admin', config.adminUsername || '-', chalk.white));
+  console.log(infoRow('🌐', isVi ? 'Ngôn ngữ' : 'Language', config.language === 'vi' ? 'Tiếng Việt' : 'English', chalk.white));
+  console.log(infoRow('🚀', isVi ? 'Khởi động' : 'Startup', startupModeLabel, chalk.white));
   if (snapshot?.startedAt) {
     const dt = new Date(snapshot.startedAt);
-    console.log(infoRow(isVi ? '⏰ Bật lúc' : '⏰ Started at', dt.toLocaleTimeString(isVi ? 'vi-VN' : 'en-US'), chalk.white));
+    console.log(infoRow('⏰', isVi ? 'Bật lúc' : 'Started at', dt.toLocaleTimeString(isVi ? 'vi-VN' : 'en-US'), chalk.white));
   }
   if (session) {
     console.log(separator());
-    console.log(infoRow(isVi ? '⚡ Phiên' : '⚡ Session', `${session.preset}`, chalk.yellow));
+    console.log(infoRow('⚡', isVi ? 'Phiên' : 'Session', `${session.preset}`, chalk.yellow));
     const shortCwd = session.cwd.length > 40 ? '...' + session.cwd.slice(-38) : session.cwd;
-    console.log(infoRow(isVi ? '📁 Thư mục' : '📁 Directory', shortCwd, chalk.gray));
+    console.log(infoRow('📁', isVi ? 'Thư mục' : 'Directory', shortCwd, chalk.gray));
   }
   if (snapshot?.lastError) {
     console.log(separator());
-    console.log(infoRow(isVi ? '⚠️ Lỗi' : '⚠️ Error', snapshot.lastError, chalk.red));
+    console.log(infoRow('⚠️', isVi ? 'Lỗi' : 'Error', snapshot.lastError, chalk.red));
   }
   console.log('');
-  console.log(chalk.bold.blue('  ' + t('dashboard.menu')));
+  console.log(chalk.bold.underline.blue('  ' + t('dashboard.menu').toUpperCase()));
 }
 
 
@@ -976,11 +976,11 @@ async function switchLanguage(
   console.log(titleBox(isVi ? '⚠️ CẢNH BÁO' : '⚠️ WARNING'));
   console.log('');
   if (isVi) {
-    console.log(chalk.red('  Cảnh báo: Đổi ngôn ngữ sẽ KHỞI ĐỘNG LẠI toàn bộ hệ thống.'));
+    console.log(chalk.red('  Cảnh báo: Đổi ngôn ngữ sẽ KHỞI ĐỘNG LẠI toàn bộ hệ thống nonstop.'));
     console.log(chalk.red('  Các phiên hoạt động (active sessions) hiện tại có thể bị mất và không thể khôi phục.'));
     console.log(chalk.yellow('  Hành động này không thể hoàn tác.'));
   } else {
-    console.log(chalk.red('  Warning: Changing language will RESTART the entire system.'));
+    console.log(chalk.red('  Warning: Changing language will RESTART the entire nonstop system.'));
     console.log(chalk.red('  Active sessions might be lost and cannot be recovered.'));
     console.log(chalk.yellow('  This action cannot be undone.'));
   }
