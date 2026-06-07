@@ -24,6 +24,7 @@ async function main(): Promise<void> {
 
   const args = new Set(process.argv.slice(2));
   const isBackground = args.has('--background');
+  const isOpenUi = args.has('--open-ui');
 
   // Handle background runner immediately to bypass commander parsing
   if (isBackground) {
@@ -77,7 +78,7 @@ async function main(): Promise<void> {
   applyConfigToProcessEnv(config);
 
   // Default command: start the interactive dashboard
-  if (process.argv.length <= 2) {
+  if (process.argv.length <= 2 || isOpenUi) {
     const status = getRuntimeStatus();
     if (!status.running && loadShouldRunState()) {
       console.log(config.language === 'vi'

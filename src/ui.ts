@@ -154,20 +154,27 @@ function renderDashboardHeader(config: AppConfig, snapshot: RuntimeStateSnapshot
 
 
 async function executeUpgrade(latestVersion: string, isVi: boolean): Promise<void> {
+  let resolvedIsVi = isVi;
+  try {
+    resolvedIsVi = loadConfigFromDisk().language === 'vi';
+  } catch {
+    // fallback
+  }
+
   clearScreen();
-  console.log(titleBox(isVi ? 'Đang nâng cấp nonstop' : 'Upgrading nonstop'));
+  console.log(titleBox(resolvedIsVi ? 'Đang nâng cấp nonstop' : 'Upgrading nonstop'));
   console.log('');
 
   const platform = os.platform();
   if (platform === 'win32') {
-    console.log(chalk.yellow(isVi 
+    console.log(chalk.yellow(resolvedIsVi 
       ? '  Đang mở cửa sổ PowerShell mới để nâng cấp. Tiến trình hiện tại sẽ tự đóng...' 
       : '  Opening a new PowerShell window for the upgrade. The current process will now exit...'));
 
-    const upgradingMsg = isVi 
+    const upgradingMsg = resolvedIsVi 
       ? `Đang nâng cấp @quangnv13/nonstop lên phiên bản ${latestVersion}...` 
       : `Upgrading @quangnv13/nonstop to version ${latestVersion}...`;
-    const completeMsg = isVi 
+    const completeMsg = resolvedIsVi 
       ? `Nâng cấp nonstop hoàn tất! Cửa sổ này sẽ tự đóng sau 3 giây...` 
       : `nonstop upgrade completed! This window will close in 3 seconds...`;
 
@@ -189,15 +196,15 @@ async function executeUpgrade(latestVersion: string, isVi: boolean): Promise<voi
 
     process.exit(0);
   } else {
-    console.log(chalk.blue(isVi ? '  Đang chạy lệnh cài đặt...' : '  Running the installation command...'));
+    console.log(chalk.blue(resolvedIsVi ? '  Đang chạy lệnh cài đặt...' : '  Running the installation command...'));
     try {
       execSync('npm install -g @quangnv13/nonstop@latest', { stdio: 'inherit' });
-      console.log(chalk.green(isVi ? '\n  ✓ Nâng cấp nonstop thành công! Vui lòng khởi động lại nonstop.' : '\n  ✓ nonstop upgraded successfully! Please restart nonstop.'));
-      await pause(isVi ? 'vi' : 'en');
+      console.log(chalk.green(resolvedIsVi ? '\n  ✓ Nâng cấp nonstop thành công! Vui lòng khởi động lại nonstop.' : '\n  ✓ nonstop upgraded successfully! Please restart nonstop.'));
+      await pause(resolvedIsVi ? 'vi' : 'en');
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red(isVi ? '\n  ❌ Lỗi nâng cấp nonstop: ' : '\n  ❌ nonstop upgrade failed: '), error);
-      await pause(isVi ? 'vi' : 'en');
+      console.error(chalk.red(resolvedIsVi ? '\n  ❌ Lỗi nâng cấp nonstop: ' : '\n  ❌ nonstop upgrade failed: '), error);
+      await pause(resolvedIsVi ? 'vi' : 'en');
     }
   }
 }
@@ -730,6 +737,17 @@ async function switchLanguage(
 
   const nextConfig = { ...config, language };
   saveConfigToDisk(nextConfig);
+
+  const status = getRuntimeStatus();
+  if (status.running) {
+    try {
+      stopBackgroundRuntime(status.snapshot, config.language);
+      startBackgroundRuntime(language);
+    } catch {
+      // ignore
+    }
+  }
+
   return nextConfig;
 }
 

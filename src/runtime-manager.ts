@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { loadRuntimeState, isPidRunning, RuntimeStateSnapshot, saveShouldRunState } from './runtime-state.js';
-import { AppLanguage } from './config.js';
+import { AppLanguage, loadConfigFromDisk } from './config.js';
 
 export interface RuntimeStatus {
   running: boolean;
@@ -128,7 +128,13 @@ export async function checkUpdateOnStartup(isBackground: boolean, language: 'vi'
 
 function promptUpgradeBackground(currentVersion: string, latestVersion: string, language: 'vi' | 'en'): void {
   const platform = os.platform();
-  const isVi = language === 'vi';
+  let isVi = language === 'vi';
+  try {
+    const config = loadConfigFromDisk();
+    isVi = config.language === 'vi';
+  } catch {
+    // fallback to parameter
+  }
 
   if (platform === 'win32') {
     const title = isVi ? 'Cập nhật nonstop' : 'nonstop Update';
