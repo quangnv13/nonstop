@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { createBotRuntime, BotRuntime, loadLastChatId } from './bot.js';
+import { getCurrentVersion } from './runtime-manager.js';
 import { AppConfig, saveConfigToDisk, applyConfigToProcessEnv } from './config.js';
 import { logger } from './logger.js';
 import { RuntimeStateSnapshot, saveRuntimeState, clearRuntimeState, getIpcSocketPath } from './runtime-state.js';
@@ -39,10 +40,17 @@ export class NonstopRuntime {
   private outputTicker: NodeJS.Timeout | null = null;
   private actionOutputTimeout: NodeJS.Timeout | null = null;
   private heartbeatTicker: NodeJS.Timeout | null = null;
+  private connectionCheckTicker: NodeJS.Timeout | null = null;
+  private telegramConnected = false;
   private onSessionOutputPush: SessionOutputPushCallback | null = null;
   private bot: BotRuntime | null = null;
   private ipcServer: net.Server | null = null;
   private activeIpcSockets = new Set<net.Socket>();
+  private activeFlushPromise: Promise<void> | null = null;
+  private nextFlushPromise: Promise<void> | null = null;
+  private nextFlushResolve: (() => void) | null = null;
+  private nextFlushIgnoreDuplicate = false;
+  private nextFlushForceSnapshot = false;
 
   constructor(config: AppConfig, mode: 'background' | 'foreground') {
     this.config = config;
@@ -60,6 +68,7 @@ export class NonstopRuntime {
       mode: this.mode,
       clientName: this.config.clientName || os.hostname() || 'LocalClient',
       botRunning: this.bot !== null,
+      telegramConnected: this.telegramConnected,
       workspaceCount: this.workspaces.length,
       activeSession: this.activeSession,
       lastError: this.lastError
@@ -164,9 +173,10 @@ export class NonstopRuntime {
         const lastChatId = loadLastChatId();
         if (lastChatId && this.bot) {
           try {
+            const version = getCurrentVersion();
             const startupMsg = this.config.language === 'vi'
-              ? `✅ nonstop client đã khởi động thành công và đang chạy!\n🖥 Client: ${this.config.clientName}`
-              : `✅ nonstop client started successfully and is running!\n🖥 Client: ${this.config.clientName}`;
+              ? `✅ nonstop client (v${version}) đã khởi động thành công và đang chạy!\n🖥 Client: ${this.config.clientName}`
+              : `✅ nonstop client (v${version}) started successfully and is running!\n🖥 Client: ${this.config.clientName}`;
             await this.bot.pushSessionOutput(lastChatId, startupMsg);
           } catch {
             // ignore
@@ -174,10 +184,35 @@ export class NonstopRuntime {
         }
       }
     });
+
+    // Setup connection healthcheck
+    if (this.connectionCheckTicker) {
+      clearInterval(this.connectionCheckTicker);
+    }
+    this.connectionCheckTicker = setInterval(async () => {
+      if (this.bot) {
+        this.telegramConnected = await this.bot.checkConnection();
+        this.writeHeartbeat();
+      }
+    }, 15000);
+
+    // Initial check
+    if (this.bot) {
+      this.bot.checkConnection().then((connected) => {
+        this.telegramConnected = connected;
+        this.writeHeartbeat();
+      });
+    }
   }
 
   async stopBot(): Promise<void> {
     await this.stopSession();
+
+    if (this.connectionCheckTicker) {
+      clearInterval(this.connectionCheckTicker);
+      this.connectionCheckTicker = null;
+    }
+    this.telegramConnected = false;
 
     if (this.bot) {
       await this.bot.stop();
@@ -437,10 +472,16 @@ export class NonstopRuntime {
     });
 
     if (this.onSessionOutputPush) {
-      await this.onSessionOutputPush(
-        session.listenerChatId,
-        `Session \`${sessionId}\` exited with code \`${code}\`.`
-      );
+      try {
+        await this.onSessionOutputPush(
+          session.listenerChatId,
+          `Session \`${sessionId}\` exited with code \`${code}\`.`
+        );
+      } catch (err) {
+        logger.error('Failed to push session exit notification to Telegram', {
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
     }
   }
 
@@ -455,6 +496,65 @@ export class NonstopRuntime {
   }
 
   private async flushOutput(forceSnapshot = false, ignoreDuplicate = false): Promise<void> {
+    // If nothing is currently flushing, we can run immediately
+    if (!this.activeFlushPromise) {
+      this.activeFlushPromise = this.flushOutputInternal(forceSnapshot, ignoreDuplicate)
+        .catch((err) => {
+          logger.error('Error during flushOutput execution', { err });
+        })
+        .finally(() => {
+          this.activeFlushPromise = null;
+          this.triggerNextFlush();
+        });
+      return this.activeFlushPromise;
+    }
+
+    // A flush is already running. We need to ensure a flush runs after it completes
+    // to capture any new changes.
+    if (ignoreDuplicate) {
+      this.nextFlushIgnoreDuplicate = true;
+    }
+    if (forceSnapshot) {
+      this.nextFlushForceSnapshot = true;
+    }
+
+    if (!this.nextFlushPromise) {
+      this.nextFlushPromise = new Promise<void>((resolve) => {
+        this.nextFlushResolve = resolve;
+      });
+    }
+
+    return this.nextFlushPromise;
+  }
+
+  private triggerNextFlush(): void {
+    if (!this.nextFlushPromise) {
+      return;
+    }
+
+    const resolve = this.nextFlushResolve;
+    const forceSnap = this.nextFlushForceSnapshot;
+    const ignoreDup = this.nextFlushIgnoreDuplicate;
+
+    // Reset pending state for the next cycle
+    this.nextFlushPromise = null;
+    this.nextFlushResolve = null;
+    this.nextFlushForceSnapshot = false;
+    this.nextFlushIgnoreDuplicate = false;
+
+    // Start the scheduled flush
+    this.activeFlushPromise = this.flushOutputInternal(forceSnap, ignoreDup)
+      .catch((err) => {
+        logger.error('Error during flushOutput execution', { err });
+      })
+      .finally(() => {
+        this.activeFlushPromise = null;
+        resolve?.();
+        this.triggerNextFlush();
+      });
+  }
+
+  private async flushOutputInternal(forceSnapshot = false, ignoreDuplicate = false): Promise<void> {
     const session = this.activeSession;
     if (!session) {
       this.outputBuffer.current = '';

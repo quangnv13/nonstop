@@ -64,6 +64,7 @@ export interface BotRuntime {
     options?: SessionOutputMessage['options']
   ) => Promise<void>;
   showConfirmationPrompt: (session: ActiveSessionState, text: string) => Promise<void>;
+  checkConnection(): Promise<boolean>;
 }
 
 interface ChatState {
@@ -837,7 +838,7 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     },
     async pushSessionOutput(chatId, text, options) {
       try {
-        await bot.api.sendMessage(chatId, text, options);
+        await withTimeout(bot.api.sendMessage(chatId, text, options), 15000, 'Telegram sendMessage');
       } catch (error) {
         logger.error('Failed to send Telegram message', {
           chatId,
@@ -848,8 +849,37 @@ export function createBotRuntime(deps: CreateBotRuntimeDependencies): BotRuntime
     // Confirmation prompt đã bị xóa — không dùng nữa
     async showConfirmationPrompt(_session, _text) {
       // Intentionally disabled
+    },
+    async checkConnection() {
+      try {
+        await withTimeout(bot.api.getMe(), 10000, 'Telegram checkConnection');
+        return true;
+      } catch (error) {
+        logger.error('Telegram checkConnection failed', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        return false;
+      }
     }
   };
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Timeout of ${timeoutMs}ms exceeded for ${label}`));
+    }, timeoutMs);
+
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
 }
 
 function normalizeUsername(username: string | null | undefined): string {

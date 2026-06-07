@@ -10,6 +10,7 @@ export interface RuntimeStateSnapshot {
   mode: 'background' | 'foreground';
   clientName: string;
   botRunning: boolean;
+  telegramConnected?: boolean;
   workspaceCount: number;
   activeSession: ActiveSessionState | null;
   lastError: string | null;

@@ -85,7 +85,8 @@ async function runSelectionMenu<T>(
     {
       type: 'select',
       name: 'value',
-      message: chalk.cyan(isVi ? 'Lựa chọn:' : 'Menu:'),
+      prefix: '',
+      message: '',
       choices: options.map(opt => ({
         name: opt.label,
         value: opt.value
@@ -104,6 +105,19 @@ function renderDashboardHeader(config: AppConfig, snapshot: RuntimeStateSnapshot
   const runtimeLabel = isRunning ? chalk.bold.green(t('dashboard.running')) : chalk.bold.red(t('dashboard.stopped'));
   const session = snapshot?.activeSession;
   const isVi = config.language === 'vi';
+
+  let telegramStatus = '';
+  let telegramColor = chalk.gray;
+  if (!snapshot) {
+    telegramStatus = isVi ? 'CHƯA KHỞI ĐỘNG' : 'NOT RUNNING';
+    telegramColor = chalk.gray;
+  } else if (snapshot.telegramConnected) {
+    telegramStatus = isVi ? 'ĐÃ KẾT NỐI' : 'CONNECTED';
+    telegramColor = chalk.green;
+  } else {
+    telegramStatus = isVi ? 'MẤT KẾT NỐI' : 'DISCONNECTED';
+    telegramColor = chalk.red;
+  }
 
   let modeLabel = '';
   if (snapshot) {
@@ -130,6 +144,8 @@ function renderDashboardHeader(config: AppConfig, snapshot: RuntimeStateSnapshot
   console.log(titleBox(t('dashboard.title')));
   console.log('');
   console.log(infoRow(isVi ? 'Trạng thái' : 'Status', isRunning ? `${runtimeLabel}  ${chalk.gray(`(${modeLabel})`)}` : runtimeLabel));
+  console.log(infoRow(isVi ? 'Phiên bản' : 'Version', `v${getCurrentVersion()}`, chalk.white));
+  console.log(infoRow('Telegram', telegramStatus, telegramColor));
   console.log(infoRow('Client', config.clientName, chalk.white));
   console.log(infoRow('Admin', config.adminUsername || '-', chalk.white));
   console.log(infoRow(isVi ? 'Ngôn ngữ' : 'Language', config.language === 'vi' ? 'Tiếng Việt' : 'English', chalk.white));
