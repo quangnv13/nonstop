@@ -722,26 +722,6 @@ function stripAnsi(text: string): string {
 function createTerminalState(): TerminalRenderState {
   return { lines: [''], row: 0, col: 0, savedRow: 0, savedCol: 0 };
 }
-
-function ensureLine(state: TerminalRenderState, row: number): void {
-  while (state.lines.length <= row) {
-    state.lines.push('');
-  }
-}
-
-function writeAt(state: TerminalRenderState, char: string): void {
-  ensureLine(state, state.row);
-  const current = state.lines[state.row];
-  const padded = current.padEnd(state.col, ' ');
-  state.lines[state.row] = padded.slice(0, state.col) + char + padded.slice(state.col + 1);
-  state.col += 1;
-}
-
-function clearLineFromCursor(state: TerminalRenderState): void {
-  ensureLine(state, state.row);
-  state.lines[state.row] = state.lines[state.row].slice(0, state.col);
-}
-
 function trimTerminalHistory(state: TerminalRenderState, maxRenderLines: number): void {
   if (state.lines.length <= maxRenderLines) {
     return;
@@ -750,67 +730,6 @@ function trimTerminalHistory(state: TerminalRenderState, maxRenderLines: number)
   const removeCount = state.lines.length - maxRenderLines;
   state.lines = state.lines.slice(removeCount);
   state.row = Math.max(0, state.row - removeCount);
-  state.savedRow = Math.max(0, state.savedRow - removeCount);
-}
-
-function handleCsiSequence(state: TerminalRenderState, paramsRaw: string, command: string): void {
-  const privateMode = paramsRaw.startsWith('?');
-  const normalized = privateMode ? paramsRaw.slice(1) : paramsRaw;
-  const params =
-    normalized.length > 0
-      ? normalized.split(';').map((value) => {
-          const parsed = parseInt(value, 10);
-          return Number.isFinite(parsed) ? parsed : 0;
-        })
-      : [];
-
-  switch (command) {
-    case 'A':
-      state.row = Math.max(0, state.row - (params[0] || 1));
-      return;
-    case 'B':
-      state.row += params[0] || 1;
-      ensureLine(state, state.row);
-      return;
-    case 'C':
-      state.col += params[0] || 1;
-      return;
-    case 'D':
-      state.col = Math.max(0, state.col - (params[0] || 1));
-      return;
-    case 'G':
-      state.col = Math.max(0, (params[0] || 1) - 1);
-      return;
-    case 'H':
-    case 'f':
-      state.row = Math.max(0, (params[0] || 1) - 1);
-      state.col = Math.max(0, (params[1] || 1) - 1);
-      ensureLine(state, state.row);
-      return;
-    case 'J':
-      if ((params[0] || 0) === 2) {
-        state.lines = [''];
-        state.row = 0;
-        state.col = 0;
-        state.savedRow = 0;
-        state.savedCol = 0;
-      }
-      return;
-    case 'K':
-      clearLineFromCursor(state);
-      return;
-    case 's':
-      state.savedRow = state.row;
-      state.savedCol = state.col;
-      return;
-    case 'u':
-      state.row = state.savedRow;
-      state.col = state.savedCol;
-      ensureLine(state, state.row);
-      return;
-    default:
-      return;
-  }
 }
 
 function applyTerminalOutput(
@@ -818,67 +737,43 @@ function applyTerminalOutput(
   chunk: string,
   maxRenderLines: number
 ): void {
+  const cleanChunk = stripAnsi(chunk);
   let index = 0;
 
-  while (index < chunk.length) {
-    const char = chunk[index];
-
-    if (char === '\u001b') {
-      const next = chunk[index + 1];
-
-      if (next === '[') {
-        const match = chunk.slice(index).match(/^\u001b\[([0-9;?]*)([@-~])/);
-        if (match) {
-          handleCsiSequence(state, match[1], match[2]);
-          index += match[0].length;
-          continue;
-        }
-      }
-
-      if (next === ']') {
-        const belIndex = chunk.indexOf('\u0007', index + 2);
-        if (belIndex !== -1) {
-          index = belIndex + 1;
-          continue;
-        }
-      }
-
-      index += 1;
-      continue;
-    }
-
-    if (char === '\r') {
-      state.col = 0;
-      index += 1;
-      continue;
-    }
+  while (index < cleanChunk.length) {
+    const char = cleanChunk[index];
 
     if (char === '\n') {
-      state.row += 1;
+      state.lines.push('');
+      state.row = state.lines.length - 1;
       state.col = 0;
-      ensureLine(state, state.row);
-      trimTerminalHistory(state, maxRenderLines);
-      index += 1;
-      continue;
-    }
-
-    if (char === '\b') {
-      state.col = Math.max(0, state.col - 1);
-      index += 1;
-      continue;
-    }
-
-    if (char === '\t') {
-      const spaces = 4 - (state.col % 4);
-      for (let i = 0; i < spaces; i += 1) {
-        writeAt(state, ' ');
+    } else if (char === '\r') {
+      const lastLineIndex = state.lines.length - 1;
+      if (lastLineIndex >= 0) {
+        state.lines[lastLineIndex] = '';
       }
-      index += 1;
-      continue;
-    }
-
-    if (char >= ' ') {
-      writeAt(state, char);
+      state.col = 0;
+    } else if (char === '\b') {
+      const lastLineIndex = state.lines.length - 1;
+      if (lastLineIndex >= 0) {
+        const len = state.lines[lastLineIndex].length;
+        if (len > 0) {
+          state.lines[lastLineIndex] = state.lines[lastLineIndex].slice(0, -1);
+        }
+      }
+      state.col = Math.max(0, state.col - 1);
+    } else if (char === '\t') {
+      const lastLineIndex = state.lines.length - 1;
+      if (lastLineIndex >= 0) {
+        state.lines[lastLineIndex] += '    ';
+      }
+      state.col += 4;
+    } else if (char >= ' ') {
+      const lastLineIndex = state.lines.length - 1;
+      if (lastLineIndex >= 0) {
+        state.lines[lastLineIndex] += char;
+      }
+      state.col += 1;
     }
 
     index += 1;
@@ -886,6 +781,7 @@ function applyTerminalOutput(
 
   trimTerminalHistory(state, maxRenderLines);
 }
+
 
 function renderTerminalSnapshot(state: TerminalRenderState, maxOutputLines: number): string {
   const rawText = state.lines
