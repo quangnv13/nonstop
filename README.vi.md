@@ -12,7 +12,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-brightgreen.svg)]()
 
-`nonstop` là trung tâm điều khiển terminal và tiến trình chạy ẩn cho môi trường PTY cục bộ được điều khiển qua Telegram. Dự án cung cấp giao diện CLI/TUI mạnh mẽ ở cấp root để quản lý hệ thống, tùy chỉnh cấu hình, lập bản đồ thư mục làm việc (workspaces), tích hợp khởi động cùng hệ điều hành, trong khi bot Telegram chạy ẩn thực thi và điều phối các phiên PTY (PowerShell, Bash, v.v.) một cách bảo mật.
+`nonstop` là một hệ thống điều khiển (control plane) qua Telegram dành cho các AI agent và phiên làm việc terminal.
+
+Chạy và quản lý Codex, Claude, Antigravity, Bash, PowerShell hoặc bất kỳ quy trình làm việc dựa trên PTY nào từ xa ở mọi nơi, trong khi vẫn giữ khả năng tiếp quản cục bộ (local takeover) liền mạch khi cần thiết.
 
 ---
 

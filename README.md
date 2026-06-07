@@ -12,7 +12,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-brightgreen.svg)]()
 
-`nonstop` is a terminal control center and background runner for a local, Telegram-driven PTY runtime. It provides a robust root-level CLI/TUI for system management, configuration tuning, workspace mapping, and OS startup integration, while the Telegram bot securely manages background PTY sessions (PowerShell, Bash, etc.).
+`nonstop` nonstop is a Telegram-powered control plane for AI agents and terminal sessions.
+
+Run and manage Codex, Claude, Antigravity, Bash, PowerShell or any PTY-based workflow remotely from anywhere, while retaining seamless local takeover when needed.
 
 ---
 

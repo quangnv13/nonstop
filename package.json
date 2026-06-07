@@ -5,7 +5,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "description": "nonstop Telegram terminal control CLI",
+  "description": "Remote terminal control plane for AI agents via Telegram. Manage Codex, Claude, Antigravity and shell sessions from anywhere.",
   "author": "quangnv13",
   "license": "MIT",
   "homepage": "https://github.com/quangnv13/nonstop#readme",
@@ -24,7 +24,14 @@
     "cli",
     "tui",
     "remote-control",
-    "ai agent"
+    "AI agents",
+    "remote terminal",
+    "Codex",
+    "Claude",
+    "Antigravity",
+    "PTY",
+    "workspace",
+    "control plane"
   ],
   "files": [
     "dist",

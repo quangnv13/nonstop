@@ -12,7 +12,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-brightgreen.svg)]()
 
-`nonstop` 是一个用于控制本地由 Telegram 驱动的 PTY 运行环境的终端控制中心和后台运行程序。它提供了一个强大的根级别 CLI/TUI，用于系统管理、配置调整、工作区映射和操作系统启动项集成，同时 Telegram 机器人可以安全地管理后台 PTY 会话（PowerShell, Bash 等）。
+`nonstop` 是一个专为 AI 智能体（AI Agent）和终端会话打造的、由 Telegram 驱动的控制平面（Control Plane）。
+
+可随时随地远程运行并管理 Codex、Claude、Antigravity、Bash、PowerShell 或任何基于 PTY 的工作流，同时在需要时保留无缝的本地接管（Local Takeover）能力。
 
 ---
 
