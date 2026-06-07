@@ -70,6 +70,8 @@ graph TD
 ## 🚀 Hướng Dẫn Nhanh
 
 ### 1. Cài Đặt
+**Yêu cầu hệ thống**: Node.js >= 22.13.0
+
 Cài đặt package toàn cục (globally) bằng npm:
 ```bash
 npm install -g @quangnv13/nonstop

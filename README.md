@@ -70,6 +70,8 @@ graph TD
 ## 🚀 Quick Start
 
 ### 1. Installation
+**Prerequisites**: Node.js >= 22.13.0
+
 Install the package globally using npm:
 ```bash
 npm install -g @quangnv13/nonstop

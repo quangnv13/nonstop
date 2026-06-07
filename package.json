@@ -37,6 +37,9 @@
   "bin": {
     "nonstop": "dist/index.js"
   },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",

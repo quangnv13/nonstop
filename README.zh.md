@@ -69,6 +69,8 @@ graph TD
 ## 🚀 快速开始
 
 ### 1. 安装
+**环境要求**: Node.js >= 22.13.0
+
 使用 npm 全局安装该包：
 ```bash
 npm install -g @quangnv13/nonstop
