@@ -2,11 +2,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { exec, execSync, spawn } from 'child_process';
-import * as readline from 'node:readline';
-import { createInterface } from 'node:readline/promises';
-import { stdin as input, stdout as output } from 'node:process';
 import chalk from 'chalk';
 import boxen from 'boxen';
+import inquirer from 'inquirer';
+import Table from 'cli-table3';
 import {
   AppConfig,
   AppLanguage,
@@ -32,7 +31,7 @@ interface Option<T> {
 
 function clearScreen(): void {
   // \u001b[2J clears visible area, \u001b[3J clears scrollback buffer, \u001b[H moves cursor home
-  output.write('\u001b[2J\u001b[3J\u001b[H');
+  process.stdout.write('\u001b[2J\u001b[3J\u001b[H');
 }
 
 function titleBox(title: string): string {
@@ -52,28 +51,15 @@ function separator(): string {
   return chalk.gray('  ' + '─'.repeat(44));
 }
 
-async function askQuestion(query: string): Promise<string> {
-  const rl = createInterface({ input, output });
-  try {
-    return await rl.question(query);
-  } finally {
-    rl.close();
-    process.stdin.resume();
-  }
-}
-
 async function pause(language?: AppLanguage): Promise<void> {
   const isVi = language !== 'en';
-  await askQuestion(`\n${chalk.gray(isVi ? 'Nhấn Enter để tiếp tục...' : 'Press Enter to continue...')}`);
-}
-
-async function askWithDefault(
-  label: string,
-  currentValue: string
-): Promise<string> {
-  const prompt = `${chalk.bold(label)}${currentValue ? chalk.gray(` [${currentValue}]`) : ''}: `;
-  const answer = await askQuestion(prompt);
-  return answer.trim() || currentValue;
+  await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'pressEnter',
+      message: chalk.gray(isVi ? 'Nhấn Enter để tiếp tục...' : 'Press Enter to continue...')
+    }
+  ]);
 }
 
 async function runSelectionMenu<T>(
@@ -82,7 +68,6 @@ async function runSelectionMenu<T>(
   initialIndex: number = 0,
   language?: AppLanguage
 ): Promise<T> {
-  let selectedIndex = Math.min(initialIndex, options.length - 1);
   let resolvedLang = language;
   if (!resolvedLang) {
     try {
@@ -93,64 +78,24 @@ async function runSelectionMenu<T>(
   }
   const isVi = resolvedLang === 'vi';
 
-  return new Promise<T>((resolve, reject) => {
-    const isTTY = process.stdin.isTTY;
-    const wasRaw = process.stdin.isRaw;
+  clearScreen();
+  headerRenderer();
 
-    const cleanup = () => {
-      process.stdin.removeListener('keypress', onKeypress);
-      process.stdout.write('\u001b[?25h');
-      if (isTTY) {
-        try { process.stdin.setRawMode(wasRaw); } catch { /* ignore */ }
-      }
-    };
-
-    function render() {
-      clearScreen();
-      headerRenderer();
-      console.log('');
-      options.forEach((opt, idx) => {
-        if (idx === selectedIndex) {
-          console.log(`  ${chalk.cyan('❯')} ${chalk.bold.cyan(opt.label)}`);
-        } else {
-          console.log(`    ${chalk.gray(opt.label)}`);
-        }
-      });
-      console.log('');
-      console.log(chalk.gray(isVi ? '  ↑↓ di chuyển   Enter xác nhận' : '  ↑↓ navigate    Enter to select'));
+  const answers = await inquirer.prompt([
+    {
+      type: 'select',
+      name: 'value',
+      message: chalk.cyan(isVi ? 'Lựa chọn:' : 'Menu:'),
+      choices: options.map(opt => ({
+        name: opt.label,
+        value: opt.value
+      })),
+      default: options[initialIndex]?.value,
+      loop: true
     }
+  ]);
 
-    try {
-      readline.emitKeypressEvents(process.stdin);
-      if (isTTY) process.stdin.setRawMode(true);
-      process.stdout.write('\u001b[?25l');
-    } catch (err) {
-      cleanup();
-      reject(err);
-      return;
-    }
-
-    render();
-
-    function onKeypress(_str: string, key: { ctrl?: boolean; name?: string }) {
-      if (key?.ctrl && key.name === 'c') {
-        cleanup();
-        process.exit(0);
-      }
-      if (key?.name === 'up') {
-        selectedIndex = (selectedIndex - 1 + options.length) % options.length;
-        render();
-      } else if (key?.name === 'down') {
-        selectedIndex = (selectedIndex + 1) % options.length;
-        render();
-      } else if (key?.name === 'return' || key?.name === 'enter') {
-        cleanup();
-        resolve(options[selectedIndex].value);
-      }
-    }
-
-    process.stdin.on('keypress', onKeypress);
-  });
+  return answers.value;
 }
 
 function renderDashboardHeader(config: AppConfig, snapshot: RuntimeStateSnapshot | null): void {
@@ -361,7 +306,7 @@ async function manageActiveSessions(language: AppLanguage): Promise<void> {
 
     if (status.running && session && session.status === 'running') {
       options.push({
-        label: `● [${session.preset.toUpperCase()}] ID: ${session.sessionId} | ${session.cwd}`,
+        label: `● Attach: [${session.preset.toUpperCase()}] ID: ${session.sessionId}`,
         value: { type: 'select', preset: session.preset, cwd: session.cwd }
       });
     }
@@ -384,9 +329,18 @@ async function manageActiveSessions(language: AppLanguage): Promise<void> {
             ? '  Không có session nào đang chạy.'
             : '  No active sessions running.'));
         } else {
-          console.log(chalk.gray(isVi
-            ? '  Chọn session để tiếp tục trực tiếp:'
-            : '  Select a session to continue locally:'));
+          const table = new Table({
+            head: [chalk.cyan('ID'), chalk.cyan('Preset'), chalk.cyan('Status'), chalk.cyan('CWD')],
+            chars: {
+              'top': '─', 'top-mid': '┬', 'top-left': '┌', 'top-right': '┐',
+              'bottom': '─', 'bottom-mid': '┴', 'bottom-left': '└', 'bottom-right': '┘',
+              'left': '│', 'left-mid': '├', 'mid': '─', 'mid-mid': '┼',
+              'right': '│', 'right-mid': '┤', 'middle': '│'
+            }
+          });
+          table.push([session.sessionId, session.preset.toUpperCase(), chalk.green(session.status), session.cwd]);
+          console.log(table.toString());
+          console.log('');
         }
       },
       options,
@@ -426,9 +380,26 @@ async function runSetupWizard(
   console.log(titleBox(t('wizard.title')));
   console.log('');
 
-  const telegramBotToken = await askWithDefault(t('wizard.token'), currentConfig.telegramBotToken);
-  const adminUsername = await askWithDefault(t('wizard.admin'), currentConfig.adminUsername);
-  const clientName = await askWithDefault(t('wizard.clientName'), currentConfig.clientName);
+  const answers = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'telegramBotToken',
+      message: t('wizard.token'),
+      default: currentConfig.telegramBotToken
+    },
+    {
+      type: 'input',
+      name: 'adminUsername',
+      message: t('wizard.admin'),
+      default: currentConfig.adminUsername
+    },
+    {
+      type: 'input',
+      name: 'clientName',
+      message: t('wizard.clientName'),
+      default: currentConfig.clientName
+    }
+  ]);
 
   const startupMode = await runSelectionMenu(
     () => {
@@ -447,10 +418,10 @@ async function runSetupWizard(
   const nextConfig: AppConfig = {
     ...currentConfig,
     language,
-    telegramBotToken,
-    adminUsername,
-    telegramUsername: adminUsername,
-    clientName,
+    telegramBotToken: answers.telegramBotToken,
+    adminUsername: answers.adminUsername,
+    telegramUsername: answers.adminUsername,
+    clientName: answers.clientName,
     startupMode
   };
 
@@ -499,16 +470,60 @@ async function editConfig(
   console.log(titleBox(config.language === 'vi' ? 'Sửa cấu hình' : 'Edit config'));
   console.log('');
 
+  const answers = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'telegramBotToken',
+      message: 'TELEGRAM_BOT_TOKEN',
+      default: config.telegramBotToken
+    },
+    {
+      type: 'input',
+      name: 'adminUsername',
+      message: 'ADMIN_USERNAME',
+      default: config.adminUsername
+    },
+    {
+      type: 'input',
+      name: 'clientName',
+      message: 'CLIENT_NAME',
+      default: config.clientName
+    },
+    {
+      type: 'input',
+      name: 'telegramUsername',
+      message: 'TELEGRAM_USERNAME',
+      default: config.telegramUsername
+    },
+    {
+      type: 'input',
+      name: 'codexCmd',
+      message: 'CODEX_CMD',
+      default: config.codexCmd
+    },
+    {
+      type: 'input',
+      name: 'antigravityCmd',
+      message: 'ANTIGRAVITY_CMD',
+      default: config.antigravityCmd
+    },
+    {
+      type: 'input',
+      name: 'claudeCmd',
+      message: 'CLAUDE_CMD',
+      default: config.claudeCmd
+    },
+    {
+      type: 'input',
+      name: 'dangerousCommandConfirm',
+      message: 'DANGEROUS_COMMAND_CONFIRM',
+      default: config.dangerousCommandConfirm
+    }
+  ]);
+
   const nextConfig: AppConfig = {
     ...config,
-    telegramBotToken: await askWithDefault('TELEGRAM_BOT_TOKEN', config.telegramBotToken),
-    adminUsername: await askWithDefault('ADMIN_USERNAME', config.adminUsername),
-    clientName: await askWithDefault('CLIENT_NAME', config.clientName),
-    telegramUsername: await askWithDefault('TELEGRAM_USERNAME', config.telegramUsername),
-    codexCmd: await askWithDefault('CODEX_CMD', config.codexCmd),
-    antigravityCmd: await askWithDefault('ANTIGRAVITY_CMD', config.antigravityCmd),
-    claudeCmd: await askWithDefault('CLAUDE_CMD', config.claudeCmd),
-    dangerousCommandConfirm: await askWithDefault('DANGEROUS_COMMAND_CONFIRM', config.dangerousCommandConfirm)
+    ...answers
   };
 
   saveConfigToDisk(nextConfig);
@@ -537,6 +552,25 @@ async function manageWorkspaces(
     const selection = await runSelectionMenu(
       () => {
         console.log(titleBox(isVi ? 'Quản lý không gian làm việc' : 'Manage Workspaces'));
+        console.log('');
+        if (workspaces.length === 0) {
+          console.log(chalk.gray(isVi ? '  Không có không gian làm việc nào.' : '  No workspaces registered.'));
+        } else {
+          const table = new Table({
+            head: [chalk.cyan(isVi ? 'STT' : 'No.'), chalk.cyan(isVi ? 'Tên' : 'Name'), chalk.cyan(isVi ? 'Đường dẫn' : 'Path')],
+            chars: {
+              'top': '─', 'top-mid': '┬', 'top-left': '┌', 'top-right': '┐',
+              'bottom': '─', 'bottom-mid': '┴', 'bottom-left': '└', 'bottom-right': '┘',
+              'left': '│', 'left-mid': '├', 'mid': '─', 'mid-mid': '┼',
+              'right': '│', 'right-mid': '┤', 'middle': '│'
+            }
+          });
+          workspaces.forEach((ws, idx) => {
+            table.push([idx + 1, ws.name, ws.path]);
+          });
+          console.log(table.toString());
+        }
+        console.log('');
         console.log(chalk.gray(`  ${isVi ? 'Chọn không gian làm việc hoặc thêm mới:' : 'Select workspace or add new:'}`));
       },
       options,
@@ -550,14 +584,23 @@ async function manageWorkspaces(
       clearScreen();
       console.log(titleBox(isVi ? 'Thêm không gian làm việc mới' : 'Add workspace'));
       console.log('');
-      const name = (await askQuestion(chalk.bold(isVi ? 'Tên không gian làm việc: ' : 'Workspace name: '))).trim();
-      const rawPath = (await askQuestion(chalk.bold(isVi ? 'Đường dẫn: ' : 'Path: '))).trim();
 
-      if (!rawPath) {
-        console.log(chalk.red(isVi ? '  Đường dẫn không được để trống.' : '  Path cannot be empty.'));
-        await pause(language);
-        continue;
-      }
+      const answers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'name',
+          message: isVi ? 'Tên không gian làm việc:' : 'Workspace name:',
+          default: 'Workspace'
+        },
+        {
+          type: 'input',
+          name: 'rawPath',
+          message: isVi ? 'Đường dẫn:' : 'Path:',
+          validate: (input) => input.trim() ? true : (isVi ? 'Đường dẫn không được để trống.' : 'Path cannot be empty.')
+        }
+      ]);
+      const name = answers.name.trim();
+      const rawPath = answers.rawPath.trim();
 
       const resolvedPath = path.resolve(rawPath);
       if (!fs.existsSync(resolvedPath)) {
@@ -605,13 +648,30 @@ async function manageWorkspaces(
         clearScreen();
         console.log(titleBox(isVi ? 'Sửa không gian làm việc' : 'Edit workspace'));
         console.log('');
-        const newName = await askWithDefault(isVi ? 'Tên mới' : 'New name', ws.name);
-        const newPath = await askWithDefault(isVi ? 'Đường dẫn mới' : 'New path', ws.path);
-        const resolvedPath = path.resolve(newPath.trim());
+
+        const newAnswers = await inquirer.prompt([
+          {
+            type: 'input',
+            name: 'name',
+            message: isVi ? 'Tên mới:' : 'New name:',
+            default: ws.name
+          },
+          {
+            type: 'input',
+            name: 'path',
+            message: isVi ? 'Đường dẫn mới:' : 'New path:',
+            default: ws.path,
+            validate: (input) => input.trim() ? true : (isVi ? 'Đường dẫn không được để trống.' : 'Path cannot be empty.')
+          }
+        ]);
+        const newName = newAnswers.name.trim();
+        const newPath = newAnswers.path.trim();
+
+        const resolvedPath = path.resolve(newPath);
         if (!fs.existsSync(resolvedPath)) {
           console.log(chalk.yellow(`  ⚠ ${isVi ? 'Đường dẫn không tồn tại.' : 'Path does not exist.'}`));
         }
-        workspaces[idx] = { ...ws, name: newName.trim() || ws.name, path: resolvedPath };
+        workspaces[idx] = { ...ws, name: newName || ws.name, path: resolvedPath };
         saveWorkspaces(workspaces);
         console.log(chalk.green(`\n  ✓ ${isVi ? 'Đã cập nhật không gian làm việc.' : 'Workspace updated.'}`));
         await pause(language);
@@ -689,7 +749,7 @@ async function showRecentLogs(language: AppLanguage): Promise<void> {
   await pause(language);
 }
 
-async function attachToBackgroundSession(
+export async function attachToBackgroundSession(
   preset: string,
   cwd: string,
   language: AppLanguage
