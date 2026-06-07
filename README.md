@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-brightgreen.svg)]()
 
-`nonstop` is a terminal control center and background runner for a local, Telegram-driven PTY runtime. It provides a robust root-level CLI/TUI for system management, config tuning, workspace mapping, and OS startup integration, while the Telegram bot securely delegates PTY sessions (PowerShell, Bash, etc.) in the background.
+`nonstop` is a terminal control center and background runner for a local, Telegram-driven PTY runtime. It provides a robust root-level CLI/TUI for system management, configuration tuning, workspace mapping, and OS startup integration, while the Telegram bot securely manages background PTY sessions (PowerShell, Bash, etc.).
 
 ---
 
@@ -42,9 +42,9 @@
 * **🔄 Optimized Output Stream** — Advanced batch-delivery mechanics with configurable output intervals (`OUTPUT_INTERVAL`) and interaction-triggered flush delays (`ACTION_INTERVAL`), ensuring fluid terminal logs inside Telegram without hitting API limits.
 * **🚀 Native OS Autostart** — Easy configuration to run as a background service on OS startup (supports Windows and Linux).
 * **🔄 Seamless Remote/Local Switching** — Continue background PTY sessions directly from your computer terminal. The Telegram output sync automatically pauses during active local interaction to prevent rate limits, then flushes a final summary snapshot of the session to Telegram immediately when you detach (via `Ctrl+B` then `D`).
-* **⚠️ Dangerous Command Protection** — Intercepts and prompts for confirmation (via Telegram inline buttons) before executing commands matching a customizable comma-separated list of dangerous patterns, preventing accidental system damage.
+* **⚠️ Dangerous Command Protection** — Intercepts commands matching a customizable list of dangerous patterns and prompts for confirmation (via Telegram inline buttons) before execution, preventing accidental system damage.
 * **🌐 Bilingual Support** — Fully localized in English (`en`) and Vietnamese (`vi`).
-* **🛡️ Hardened Security** — Hardened token validation and authorization checks, restricting control access strictly to the configured admin account.
+* **🛡️ Hardened Security** — Hardened token validation and authorization checks that restrict control access strictly to the configured administrator account.
 
 
 ---
@@ -91,7 +91,7 @@ Navigate to the directory where you want to store your configuration and run:
 nonstop
 ```
 > [!NOTE]
-> On the first launch, if your `.env` configuration file is missing, `nonstop` will automatically trigger a **Setup Wizard** in your terminal to configure:
+> On the first launch, if your `.env` configuration file is missing, `nonstop` will automatically start a **Setup Wizard** in your terminal to configure:
 > * **Telegram Bot Token**: The token you copied from BotFather.
 > * **Allowed Admin Username**: Your Telegram username (starting with `@`) to prevent unauthorized access.
 > * **Client Name**: A name to identify this server.
@@ -154,7 +154,7 @@ Once the bot runtime is active, you can interact with it via the following Teleg
      ```bash
      nonstop
      ```
-   - In the TUI, select **List of spawned CLIs**.
+   - In the TUI, select **List active sessions**.
    - Select the active session you want to connect to.
    - You are now connected directly. Any typing or commands run locally will execute in the same background PTY process.
    - *Note: While you are attached locally, synchronization of new outputs to Telegram is automatically paused to prevent hitting Telegram API rate limits.*

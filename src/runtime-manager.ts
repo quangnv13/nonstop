@@ -59,13 +59,13 @@ export function startBackgroundRuntime(language?: AppLanguage): string {
   const pid = child.pid ?? 'unknown';
   return language === 'vi'
     ? `✓ Đã khởi chạy runtime nền của nonstop (pid ${pid}).`
-    : `✓ Started nonstop background runtime (pid ${pid}).`;
+    : `✓ Started the nonstop background runtime (PID ${pid}).`;
 }
 
 export function stopBackgroundRuntime(snapshot: RuntimeStateSnapshot | null, language?: AppLanguage): string {
   const isVi = language === 'vi';
   if (!snapshot || !isPidRunning(snapshot.pid)) {
-    return isVi ? '⚠ Runtime nền không đang chạy.' : 'Background runtime is not running.';
+    return isVi ? '⚠ Runtime nền không đang chạy.' : 'The background runtime is not running.';
   }
 
   saveShouldRunState(false);
@@ -74,12 +74,12 @@ export function stopBackgroundRuntime(snapshot: RuntimeStateSnapshot | null, lan
     process.kill(snapshot.pid);
     return isVi
       ? `✓ Đã dừng runtime nền của nonstop (${snapshot.pid}).`
-      : `✓ Stopped nonstop background runtime (${snapshot.pid}).`;
+      : `✓ Stopped the nonstop background runtime (${snapshot.pid}).`;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     throw new Error(isVi
       ? `❌ Lỗi khi dừng runtime nền (${snapshot.pid}): ${errorMsg}`
-      : `Failed to stop background runtime (${snapshot.pid}): ${errorMsg}`);
+      : `Failed to stop the background runtime (${snapshot.pid}): ${errorMsg}`);
   }
 }
 
@@ -176,6 +176,6 @@ function promptUpgradeBackground(currentVersion: string, latestVersion: string, 
       shell: true
     }).unref();
   } else {
-    console.log(`Update available: ${latestVersion} (Current: ${currentVersion})`);
+    console.log(`Update available: ${latestVersion} (Current version: ${currentVersion})`);
   }
 }

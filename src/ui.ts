@@ -162,7 +162,7 @@ async function executeUpgrade(latestVersion: string, isVi: boolean): Promise<voi
   if (platform === 'win32') {
     console.log(chalk.yellow(isVi 
       ? '  Đang mở cửa sổ PowerShell mới để nâng cấp. Tiến trình hiện tại sẽ tự đóng...' 
-      : '  Opening new PowerShell window for upgrade. Current process will exit...'));
+      : '  Opening a new PowerShell window for the upgrade. The current process will now exit...'));
 
     const upgradingMsg = isVi 
       ? `Đang nâng cấp @quangnv13/nonstop lên phiên bản ${latestVersion}...` 
@@ -189,10 +189,10 @@ async function executeUpgrade(latestVersion: string, isVi: boolean): Promise<voi
 
     process.exit(0);
   } else {
-    console.log(chalk.blue(isVi ? '  Đang chạy lệnh cài đặt...' : '  Running install command...'));
+    console.log(chalk.blue(isVi ? '  Đang chạy lệnh cài đặt...' : '  Running the installation command...'));
     try {
       execSync('npm install -g @quangnv13/nonstop@latest', { stdio: 'inherit' });
-      console.log(chalk.green(isVi ? '\n  ✓ Nâng cấp nonstop thành công! Vui lòng khởi động lại nonstop.' : '\n  ✓ nonstop upgrade successful! Please restart nonstop.'));
+      console.log(chalk.green(isVi ? '\n  ✓ Nâng cấp nonstop thành công! Vui lòng khởi động lại nonstop.' : '\n  ✓ nonstop upgraded successfully! Please restart nonstop.'));
       await pause(isVi ? 'vi' : 'en');
       process.exit(0);
     } catch (error) {
@@ -257,7 +257,7 @@ export async function launchControlCenter(): Promise<void> {
 
       const options = [
         { label: toggleLabel, value: 'toggle' },
-        { label: isVi ? 'Danh sách CLI đã spawn' : 'List of spawned CLIs', value: 'sessions' },
+        { label: isVi ? 'Danh sách CLI đã spawn' : 'List active sessions', value: 'sessions' },
         { label: t('menu.settings'), value: 'settings' },
         { label: t('menu.workspaces'), value: 'workspaces' },
         { label: t('menu.startup'), value: 'startup' },
@@ -318,12 +318,12 @@ async function manageActiveSessions(language: AppLanguage): Promise<void> {
 
     const choice = await runSelectionMenu(
       () => {
-        console.log(titleBox(isVi ? 'Danh sách CLI đã spawn' : 'List of spawned CLIs'));
+        console.log(titleBox(isVi ? 'Danh sách CLI đã spawn' : 'List Active Sessions'));
         console.log('');
         if (!status.running) {
           console.log(chalk.yellow(isVi
             ? '  ⚠ Runtime nền hiện không chạy.'
-            : '  ⚠ Background runtime is not running.'));
+            : '  ⚠ The background runtime is not running.'));
         } else if (!session || session.status !== 'running') {
           console.log(chalk.gray(isVi
             ? '  Không có session nào đang chạy.'
@@ -528,7 +528,7 @@ async function editConfig(
 
   saveConfigToDisk(nextConfig);
   console.log(`\n${chalk.green(config.language === 'vi' ? '✓ Đã lưu cấu hình.' : '✓ Settings saved.')}`);
-  console.log(chalk.gray(config.language === 'vi' ? 'Khởi động lại runtime nền nếu đang chạy để áp dụng thay đổi.' : 'Restart the background runtime if running to apply changes.'));
+  console.log(chalk.gray(config.language === 'vi' ? 'Khởi động lại runtime nền nếu đang chạy để áp dụng thay đổi.' : 'Restart the background runtime if it is running to apply changes.'));
   await pause(config.language);
   return nextConfig;
 }
@@ -604,7 +604,7 @@ async function manageWorkspaces(
 
       const resolvedPath = path.resolve(rawPath);
       if (!fs.existsSync(resolvedPath)) {
-        console.log(chalk.yellow(`  ⚠ ${isVi ? 'Đường dẫn không tồn tại trên ổ đĩa.' : 'Path does not exist on disk.'}`));
+        console.log(chalk.yellow(`  ⚠ ${isVi ? 'Đường dẫn không tồn tại trên ổ đĩa.' : 'The path does not exist on disk.'}`));
       }
 
       workspaces.push({ id: createWorkspaceId(), name: name || 'Workspace', path: resolvedPath });
@@ -669,7 +669,7 @@ async function manageWorkspaces(
 
         const resolvedPath = path.resolve(newPath);
         if (!fs.existsSync(resolvedPath)) {
-          console.log(chalk.yellow(`  ⚠ ${isVi ? 'Đường dẫn không tồn tại.' : 'Path does not exist.'}`));
+          console.log(chalk.yellow(`  ⚠ ${isVi ? 'Đường dẫn không tồn tại.' : 'The path does not exist.'}`));
         }
         workspaces[idx] = { ...ws, name: newName || ws.name, path: resolvedPath };
         saveWorkspaces(workspaces);
@@ -760,7 +760,7 @@ export async function attachToBackgroundSession(
   clearScreen();
   console.log(chalk.blue(isVi 
     ? 'Đang kết nối tới phiên chạy nền...' 
-    : 'Connecting to background session...'));
+    : 'Connecting to the background session...'));
 
   return new Promise<void>((resolve) => {
     const socket = net.createConnection(socketPath);
@@ -788,10 +788,10 @@ export async function attachToBackgroundSession(
       clearScreen();
       console.log(chalk.bold.green(isVi
         ? `--- Đã kết nối tới phiên ${preset.toUpperCase()} | Gõ phím để tương tác ---`
-        : `--- Connected to ${preset.toUpperCase()} session | Start typing to interact ---`));
+        : `--- Connected to the ${preset.toUpperCase()} session | Start typing to interact ---`));
       console.log(chalk.gray(isVi
         ? '--- Nhấn Ctrl+B rồi nhấn D để ngắt kết nối (session vẫn chạy nền) ---'
-        : '--- Press Ctrl+B then D to detach (session will keep running) ---'));
+        : '--- Press Ctrl+B then D to detach (the session will keep running in the background) ---'));
       console.log('');
 
       if (process.stdin.isTTY) {
@@ -886,7 +886,7 @@ export async function attachToBackgroundSession(
       if (isClosed) return;
       console.log(chalk.gray(isVi
         ? '\nĐã ngắt kết nối với phiên chạy nền.'
-        : '\nDisconnected from background session.'));
+        : '\nDisconnected from the background session.'));
       pause(language).then(cleanup);
     });
   });

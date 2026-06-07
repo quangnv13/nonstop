@@ -15,7 +15,7 @@ import {
 import { logger } from './logger.js';
 import { NonstopRuntime } from './runtime.js';
 import { launchControlCenter, attachToBackgroundSession } from './ui.js';
-import { getRuntimeStatus, stopBackgroundRuntime, checkUpdateOnStartup, startBackgroundRuntime } from './runtime-manager.js';
+import { getRuntimeStatus, stopBackgroundRuntime, checkUpdateOnStartup, startBackgroundRuntime, getCurrentVersion } from './runtime-manager.js';
 import { saveShouldRunState, loadShouldRunState } from './runtime-state.js';
 import { loadWorkspaces, saveWorkspaces, createWorkspaceId } from './store.js';
 
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
 
     const missingFields = getMissingConfigFields(config);
     if (missingFields.length > 0) {
-      logger.error('Cannot start background runtime because config is incomplete', {
+      logger.error('Cannot start background runtime because the configuration is incomplete', {
         missingFields
       });
       process.exitCode = 1;
@@ -82,7 +82,7 @@ async function main(): Promise<void> {
     if (!status.running && loadShouldRunState()) {
       console.log(config.language === 'vi'
         ? '↻ Phát hiện trạng thái trước đó đang chạy. Đang tự khởi động lại runtime nền...'
-        : '↻ Detected previous running state. Auto-restarting background runtime...');
+        : '↻ Detected previous running state. Auto-restarting the background runtime...');
       try {
         const msg = startBackgroundRuntime(config.language);
         console.log(msg);
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
   program
     .name('nonstop')
     .description('nonstop Telegram terminal control CLI')
-    .version('1.0.16');
+    .version(getCurrentVersion());
 
   // nonstop start / daemon:start
   program
@@ -112,7 +112,7 @@ async function main(): Promise<void> {
       if (status.running) {
         console.log(config.language === 'vi'
           ? '⚠ Runtime nền của nonstop đã đang chạy.'
-          : 'nonstop background runtime is already running.');
+          : 'The nonstop background runtime is already running.');
         return;
       }
       try {
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
       } else {
         console.log(config.language === 'vi'
           ? '⚠ Runtime nền của nonstop không đang chạy.'
-          : 'nonstop background runtime is not running.');
+          : 'The nonstop background runtime is not running.');
       }
     });
 
@@ -389,7 +389,7 @@ async function main(): Promise<void> {
 
       console.log(chalk.green(isVi
         ? `✓ Đã cập nhật cấu hình ${key} thành công! (Khởi động lại runtime nền nếu đang chạy để áp dụng)`
-        : `✓ Config ${key} updated successfully! (Restart background runtime if running to apply)`));
+        : `✓ Config ${key} updated successfully! (Restart the background runtime if it is running to apply the changes)`));
     });
 
   // nonstop session ...
@@ -444,7 +444,7 @@ async function main(): Promise<void> {
       if (!status.running) {
         console.error(chalk.red(isVi
           ? '❌ Không thể kết nối vì runtime nền không chạy.'
-          : '❌ Cannot attach because background runtime is not running.'));
+          : '❌ Cannot attach because the background runtime is not running.'));
         process.exitCode = 1;
         return;
       }
