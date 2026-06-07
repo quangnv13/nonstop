@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { VirtualTerminal } from './terminal.js';
+import { VirtualTerminal } from '../src/terminal.js';
 
 test('VirtualTerminal - write characters and carriage return', () => {
   const vt = new VirtualTerminal(10, 5);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { NonstopRuntime } from './runtime.js';
-import { AppConfig } from './config.js';
+import { NonstopRuntime } from '../src/runtime.js';
+import { AppConfig } from '../src/config.js';
 
 // Helper to create a dummy config
 const dummyConfig: AppConfig = {

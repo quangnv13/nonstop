@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { createTranslator } from './i18n.js';
-import { AppLanguage } from './config.js';
+import { createTranslator } from '../src/i18n.js';
+import { AppLanguage } from '../src/config.js';
 
 test('i18n - createTranslator returns expected message for each language', () => {
   const tEn = createTranslator('en');
