@@ -13,17 +13,12 @@ import {
   NodePtyTerminalDriver,
   resolvePreset,
   SUPPORTED_PRESETS,
-  TerminalDriver
+  TerminalDriver,
+  VirtualTerminal
 } from './terminal.js';
 import { ActiveSessionState, SessionPreset, Workspace } from './types.js';
 
-interface TerminalRenderState {
-  lines: string[];
-  row: number;
-  col: number;
-  savedRow: number;
-  savedCol: number;
-}
+// VirtualTerminal represents the terminal screen buffer.
 
 type SessionOutputPushCallback = (
   chatId: number,
@@ -40,7 +35,7 @@ export class NonstopRuntime {
   private activeSession: ActiveSessionState | null = null;
   private activeDriverRef: { current: TerminalDriver | null } = { current: null };
   private outputBuffer = { current: '' };
-  private terminalState = createTerminalState();
+  private terminalState: VirtualTerminal;
   private outputTicker: NodeJS.Timeout | null = null;
   private actionOutputTimeout: NodeJS.Timeout | null = null;
   private heartbeatTicker: NodeJS.Timeout | null = null;
@@ -52,6 +47,9 @@ export class NonstopRuntime {
   constructor(config: AppConfig, mode: 'background' | 'foreground') {
     this.config = config;
     this.mode = mode;
+    const cols = 80;
+    const rows = Math.max(24, this.config.maxOutputLines);
+    this.terminalState = new VirtualTerminal(cols, rows);
   }
 
   getStatus(): RuntimeStateSnapshot {
@@ -268,7 +266,9 @@ export class NonstopRuntime {
     });
 
     try {
-      const driver = new NodePtyTerminalDriver(command, args, cwd);
+      const cols = 80;
+      const rows = Math.max(24, this.config.maxOutputLines);
+      const driver = new NodePtyTerminalDriver(command, args, cwd, cols, rows);
       this.activeSession = nextSession;
       this.activeDriverRef.current = driver;
       this.writeHeartbeat();
@@ -450,7 +450,7 @@ export class NonstopRuntime {
     }
 
     this.outputBuffer.current += chunk;
-    applyTerminalOutput(this.terminalState, chunk, this.config.maxRenderLines);
+    this.terminalState.write(chunk);
     this.ensureOutputTicker();
   }
 
@@ -538,7 +538,9 @@ export class NonstopRuntime {
     }
 
     this.outputBuffer.current = '';
-    this.terminalState = createTerminalState();
+    const cols = 80;
+    const rows = Math.max(24, this.config.maxOutputLines);
+    this.terminalState = new VirtualTerminal(cols, rows);
 
     if (this.activeSession) {
       this.activeSession.lastSentFinalText = '';
@@ -629,6 +631,7 @@ export class NonstopRuntime {
           const driver = this.activeDriverRef.current;
           if (driver && this.activeSession?.status === 'running') {
             driver.resize(msg.cols, msg.rows);
+            this.terminalState.resize(msg.cols, msg.rows);
           }
         }
         break;
@@ -719,72 +722,8 @@ function stripAnsi(text: string): string {
   return text.replace(ansiRegex, '');
 }
 
-function createTerminalState(): TerminalRenderState {
-  return { lines: [''], row: 0, col: 0, savedRow: 0, savedCol: 0 };
-}
-function trimTerminalHistory(state: TerminalRenderState, maxRenderLines: number): void {
-  if (state.lines.length <= maxRenderLines) {
-    return;
-  }
-
-  const removeCount = state.lines.length - maxRenderLines;
-  state.lines = state.lines.slice(removeCount);
-  state.row = Math.max(0, state.row - removeCount);
-}
-
-function applyTerminalOutput(
-  state: TerminalRenderState,
-  chunk: string,
-  maxRenderLines: number
-): void {
-  const cleanChunk = stripAnsi(chunk);
-  let index = 0;
-
-  while (index < cleanChunk.length) {
-    const char = cleanChunk[index];
-
-    if (char === '\n') {
-      state.lines.push('');
-      state.row = state.lines.length - 1;
-      state.col = 0;
-    } else if (char === '\r') {
-      const lastLineIndex = state.lines.length - 1;
-      if (lastLineIndex >= 0) {
-        state.lines[lastLineIndex] = '';
-      }
-      state.col = 0;
-    } else if (char === '\b') {
-      const lastLineIndex = state.lines.length - 1;
-      if (lastLineIndex >= 0) {
-        const len = state.lines[lastLineIndex].length;
-        if (len > 0) {
-          state.lines[lastLineIndex] = state.lines[lastLineIndex].slice(0, -1);
-        }
-      }
-      state.col = Math.max(0, state.col - 1);
-    } else if (char === '\t') {
-      const lastLineIndex = state.lines.length - 1;
-      if (lastLineIndex >= 0) {
-        state.lines[lastLineIndex] += '    ';
-      }
-      state.col += 4;
-    } else if (char >= ' ') {
-      const lastLineIndex = state.lines.length - 1;
-      if (lastLineIndex >= 0) {
-        state.lines[lastLineIndex] += char;
-      }
-      state.col += 1;
-    }
-
-    index += 1;
-  }
-
-  trimTerminalHistory(state, maxRenderLines);
-}
-
-
-function renderTerminalSnapshot(state: TerminalRenderState, maxOutputLines: number): string {
-  const rawText = state.lines
+function renderTerminalSnapshot(state: VirtualTerminal, maxOutputLines: number): string {
+  const rawText = state.getLines()
     .map((line) => line.replace(/\s+$/g, ''))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
